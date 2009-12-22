@@ -43,10 +43,7 @@
 
 #include <stdint.h>
 #include <sys/types.h>
-
-#define TTREE_DEFAULT_NUMKEYS 8         /**< Default number of keys per T*-tree node */
-#define TNODE_ITEMS_MIN       2         /**< Minimum allowable number of keys per T*-tree node */
-#define TNODE_ITEMS_MAX       (1 << 11) /**< Maximum allowable numebr of keys per T*-tree node */
+#include "ttree_defs.h"
 
 enum {
     TNODE_UNDEF = -1, /**< T*-tree node side is undefined */
@@ -86,7 +83,7 @@ typedef struct ttree_node {
             unsigned node_side :4;       /**< Node's side(TNODE_LEFT, TNODE_RIGHT or TNODE_ROOT) */
         };
     };
-    void *keys[2];                   /**< First two items of T*-tree node keys array */
+    void *keys[TNODE_ITEMS_MIN];         /**< First two items of T*-tree node keys array */
 } TtreeNode;
 
 /**
@@ -147,7 +144,8 @@ typedef struct ttree_cursor {
  * @return T*-tree node size
  */
 #define tnode_size(ttree)                                               \
-    (sizeof(TtreeNode) + (ttree->keys_per_tnode - 2) * sizeof(void *))
+    (sizeof(TtreeNode) + (ttree->keys_per_tnode - \
+                          TNODE_ITEMS_MIN) * sizeof(uintptr_t))
 
 /**
  * @brief Get current number of keys holding in T*-tree node
@@ -295,8 +293,8 @@ static inline int tnode_get_side(TtreeNode *tnode)
  * @param key_field   - Field in a @a data_struct that is used as a key.
  * @see Ttree
  */
-#define ttree_init(ttree, cmpf, data_struct, key_field)         \
-    __ttree_init(ttree, cmpf, offsetof(data_struct, key_field))
+#define ttree_init(ttree, num_keys, cmpf, data_struct, key_field)   \
+    __ttree_init(ttree, num_keys, cmpf, offsetof(data_struct, key_field))
 
 /**
  * @brief More detailed T*-tree initialization.
@@ -305,7 +303,8 @@ static inline int tnode_get_side(TtreeNode *tnode)
  * @param key_offs   - Offset from item structure start to its key field.
  * @see Ttree
  */
-void __ttree_init(Ttree *ttree, ttree_cmp_func_fn cmpf, size_t key_offs);
+void __ttree_init(Ttree *ttree, int num_keys,
+                  ttree_cmp_func_fn cmpf, size_t key_offs);
 
 /**
  * @brief Destroy whole T*-tree

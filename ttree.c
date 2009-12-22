@@ -35,8 +35,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <assert.h>
+#include <stdint.h>
 #include <sys/types.h>
+
 #include "ttree.h"
 
 /* Index number of first key in a T*-tree node when a node has only one key. */
@@ -80,7 +81,7 @@
 struct tnode_lookup {
     void *key;
     int low_bound;
-    int high_bound;  
+    int high_bound;
 };
 
 static int __balance_factors[] = { -1, 1 };
@@ -95,7 +96,7 @@ static int __balance_factors[] = { -1, 1 };
 int ttree_check_depth_dbg(TtreeNode *tnode)
 {
     int l, r;
-  
+
     if (!tnode)
         return 0;
 
@@ -165,10 +166,10 @@ void ttree_display_cursor_dbg(TtreeCursor *cursor)
 
 static TtreeNode *allocate_ttree_node(Ttree *ttree)
 {
-    TtreeNode *tnode = malloc(sizeof(*tnode));
+    TtreeNode *tnode = malloc(tnode_size(ttree));
 
     if (tnode) {
-        memset(tnode, 0, sizeof(*tnode) - 2 * sizeof(uintptr_t));
+        memset(tnode, 0, sizeof(*tnode) - TNODE_ITEMS_MIN * sizeof(uintptr_t));
     }
 
     return tnode;
@@ -184,7 +185,7 @@ static void *lookup_inside_tnode(Ttree *ttree, TtreeNode *tnode, struct tnode_lo
 
     floor = tnl->low_bound;
     ceil = tnl->high_bound;
-    TT_assert_DBG((floor >= 0) && (ceil < ttree->keys_per_tnode));
+    TTREE_ASSERT((floor >= 0) && (ceil < ttree->keys_per_tnode));
     while (floor <= ceil) {
         mid = (floor + ceil) >> 1;
         if ((cmp_res = ttree->cmp_func(tnl->key, tnode->keys[mid])) < 0)
@@ -255,9 +256,9 @@ static void __rotate_single(TtreeNode **target, int side)
     int opside = opposite_side(side);
 
     p = *target;
-    TT_assert_DBG(p != NULL);
+    TTREE_ASSERT(p != NULL);
     s = p->sides[side];
-    TT_assert_DBG(s != NULL);
+    TTREE_ASSERT(s != NULL);
     tnode_set_side(s, tnode_get_side(p));
     p->sides[side] = s->sides[opside];  
     s->sides[opside] = p;
@@ -319,7 +320,7 @@ static void rotate_single(TtreeNode **target, int side)
         n->bfc = !!(n->right) - !!(n->left);
   
     (*target)->bfc += side2bfc(opposite_side(side));
-    TT_assert_DBG((ABS(n->bfc < 2) && (ABS((*target)->bfc) < 2)));
+    TTREE_ASSERT((abs(n->bfc < 2) && (abs((*target)->bfc) < 2)));
 }
 
 /*
@@ -354,7 +355,7 @@ static void rotate_double(TtreeNode **target, int side)
     else
         n->sides[side]->bfc = !!(n->sides[side]->right) - !!(n->sides[side]->left);
 
-    TT_assert_DBG(ABS(n->sides[side]->bfc) < 2);
+    TTREE_ASSERT(abs(n->sides[side]->bfc) < 2);
     n = n->parent;
     __rotate_single(target, side);
     if (is_internal_node(n))
@@ -363,14 +364,14 @@ static void rotate_double(TtreeNode **target, int side)
         n->bfc = !!(n->right) - !!(n->left);
   
     /* new root node of subtree is always ideally balanced after double rotation. */
-    TT_assert_DBG(ABS(n->bfc) < 2);
+    TTREE_ASSERT(abs(n->bfc) < 2);
     (*target)->bfc = 0;
 }
 
 static void rebalance(Ttree *ttree, TtreeNode **node, TtreeCursor *cursor)
 {
     int lh = left_heavy(*node);
-    int sum = ABS((*node)->bfc + (*node)->sides[opposite_side(lh)]->bfc);
+    int sum = abs((*node)->bfc + (*node)->sides[opposite_side(lh)]->bfc);
 
   
     if (sum >= 2) {
@@ -588,12 +589,15 @@ static void fixup_after_deletion(Ttree *ttree, TtreeNode *n, TtreeCursor *cursor
     }
 }
 
-void __ttree_init(Ttree *ttree, ttree_cmp_func_fn cmpf, size_t key_offs)
+void __ttree_init(Ttree *ttree, int num_keys,
+                  ttree_cmp_func_fn cmpf, size_t key_offs)
 {
-    CT_assert((TTREE_DEFAULT_NUMKEYS >= TNODE_ITEMS_MIN) &&
-              (TTREE_DEFAULT_NUMKEYS <= TNODE_ITEMS_MAX));
+    TTREE_CT_ASSERT((TTREE_DEFAULT_NUMKEYS >= TNODE_ITEMS_MIN) &&
+                    (TTREE_DEFAULT_NUMKEYS <= TNODE_ITEMS_MAX));
+    TTREE_ASSERT((num_keys >= TNODE_ITEMS_MIN) &&
+                 (num_keys <= TNODE_ITEMS_MAX));
     ttree->root = NULL;
-    ttree->keys_per_tnode = TTREE_DEFAULT_NUMKEYS;
+    ttree->keys_per_tnode = num_keys;
     ttree->cmp_func = cmpf;
     ttree->key_offs = key_offs;
 }
@@ -635,14 +639,15 @@ void *ttree_lookup(Ttree *ttree, void *key, TtreeCursor *cursor)
     target = n = ttree->root;
     marked_tn = NULL;
     idx = first_tnode_idx(ttree);
-    if (!n)
+    if (!n) {
         goto out;
+    }
     while (n) {
         target = n;
         cmp_res = ttree->cmp_func(key, tnode_key_min(n));
         if (cmp_res < 0)
             side = TNODE_LEFT;
-        else if (cmp_res > 0) {      
+        else if (cmp_res > 0) {
             marked_tn = n; /* mark current node for future consideration. */
             side = TNODE_RIGHT;
         }
@@ -653,12 +658,12 @@ void *ttree_lookup(Ttree *ttree, void *key, TtreeCursor *cursor)
             st = TT_CSR_TIED;
             goto out;
         }
-    
+
         n = n->sides[side];
     }
     if (marked_tn) {
         int c = ttree->cmp_func(key, tnode_key_max(marked_tn));
-    
+
         if (c <= 0) {
             side = TNODE_BOUND;
             target = marked_tn;
@@ -683,9 +688,9 @@ void *ttree_lookup(Ttree *ttree, void *key, TtreeCursor *cursor)
 
     /*
      * If we're here, item wasn't found. So the only thing
-     * need to be done is to determine the position where search key
+     * needs to be done is to determine the position where search key
      * may be placed to. If target node is not empty, key may be placed
-     * on its min or max positions.
+     * to its min or max positions.
      */
     if (!tnode_is_full(ttree, target)) {
         side = TNODE_BOUND;
@@ -710,8 +715,9 @@ int ttree_insert(Ttree *ttree, void *item)
 {
     TtreeCursor cursor;
 
-    if (ttree_lookup(ttree, ttree_item2key(ttree, item), &cursor))
+    if (ttree_lookup(ttree, ttree_item2key(ttree, item), &cursor)) {
         return -1;
+    }
 
     ttree_insert_placeful(&cursor, item);
     return 0;
@@ -724,7 +730,7 @@ void ttree_insert_placeful(TtreeCursor *cursor, void *item)
     TtreeCursor tmp_cursor;
     void *key;
 
-    TT_assert_DBG(cursor->ttree != NULL);
+    TTREE_ASSERT(cursor->ttree != NULL);
     key = ttree_item2key(ttree, item);
     n = at_node = cursor->tnode;
     cursor->state = TT_CSR_TIED;
@@ -740,7 +746,7 @@ void ttree_insert_placeful(TtreeCursor *cursor, void *item)
         return;
     }
 
-    __validate_cursor_dbg(cursor);  
+    __validate_cursor_dbg(cursor);
     if (cursor->side == TNODE_BOUND) {
         if (tnode_is_full(ttree, n)) {
             /*
@@ -756,7 +762,7 @@ void ttree_insert_placeful(TtreeCursor *cursor, void *item)
 
             ttree_cursor_copy(&tmp_cursor, cursor);
             cursor = &tmp_cursor;
-      
+
             /*
              * If current node hasn't successor and right child
              * New node have to be created. It'll become the right child of the current node.
@@ -826,7 +832,7 @@ void *ttree_delete_placeful(TtreeCursor *cursor)
     tnode = cursor->tnode;
     ret = ttree_key2item(ttree, tnode->keys[cursor->idx]);
     decrease_tnode_window(ttree, tnode, &cursor->idx);
-    if (unlikely(cursor->idx > tnode->max_idx)) {
+    if (UNLIKELY(cursor->idx > tnode->max_idx)) {
         if (cursor->idx <= ttree->keys_per_tnode - 1) {
             cursor->state = TT_CSR_PENDING;
         }
@@ -853,7 +859,7 @@ void *ttree_delete_placeful(TtreeCursor *cursor)
         idx = tnode->max_idx + 1;
         increase_tnode_window(ttree, tnode, &idx);
         tnode->keys[idx] = n->keys[n->min_idx++];
-        if (unlikely(cursor->idx > tnode->max_idx))
+        if (UNLIKELY(cursor->idx > tnode->max_idx))
             cursor->idx = tnode->max_idx;
         if (!tnode_is_empty(n) && is_leaf_node(n))
             return ret;
@@ -969,11 +975,11 @@ void ttree_cursor_init(Ttree *ttree, TtreeCursor *cursor)
 
 int ttree_cursor_next(TtreeCursor *cursor)
 {
-    if (unlikely(cursor->state == TT_CSR_UNTIED))
+    if (UNLIKELY(cursor->state == TT_CSR_UNTIED))
         return -1;
   
     __validate_cursor_dbg(cursor);
-    if (unlikely(cursor->state == TT_CSR_PENDING)) {
+    if (UNLIKELY(cursor->state == TT_CSR_PENDING)) {
         int ret = 0;
     
         if ((cursor->side == TNODE_LEFT) || (cursor->idx < cursor->tnode->min_idx)) {
@@ -988,7 +994,7 @@ int ttree_cursor_next(TtreeCursor *cursor)
 
         return ret;
     }
-    if (unlikely(cursor->idx == cursor->tnode->max_idx)) {
+    if (UNLIKELY(cursor->idx == cursor->tnode->max_idx)) {
         if (cursor->tnode->successor) {
             cursor->tnode = cursor->tnode->successor;
             cursor->idx = cursor->tnode->min_idx;
@@ -997,7 +1003,7 @@ int ttree_cursor_next(TtreeCursor *cursor)
             return 0;
         }
     
-        if (likely(tnode_is_full(cursor->ttree, cursor->tnode))) {
+        if (LIKELY(tnode_is_full(cursor->ttree, cursor->tnode))) {
             cursor->side = TNODE_RIGHT;
             cursor->idx = first_tnode_idx(cursor->ttree);
         }
@@ -1018,11 +1024,11 @@ int ttree_cursor_next(TtreeCursor *cursor)
 
 int ttree_cursor_prev(TtreeCursor *cursor)
 {
-    if (unlikely(cursor->state == TT_CSR_UNTIED))
+    if (UNLIKELY(cursor->state == TT_CSR_UNTIED))
         return -1;
 
     __validate_cursor_dbg(cursor);
-    if (unlikely(cursor->state == TT_CSR_PENDING)) {
+    if (UNLIKELY(cursor->state == TT_CSR_PENDING)) {
         if ((cursor->side == TNODE_RIGHT) || (cursor->idx > cursor->tnode->max_idx)) {
             cursor->side = TNODE_BOUND;
             cursor->idx = cursor->tnode->max_idx;
@@ -1034,11 +1040,11 @@ int ttree_cursor_prev(TtreeCursor *cursor)
             cursor->idx = cursor->tnode->min_idx;
         }
     }
-    if (unlikely(cursor->idx == cursor->tnode->min_idx)) {
+    if (UNLIKELY(cursor->idx == cursor->tnode->min_idx)) {
         TtreeNode *n = Ttreenode_glb(cursor->tnode);
 
-        if (unlikely(n == NULL)) {
-            if (likely(cursor->tnode->parent != NULL)) {
+        if (UNLIKELY(n == NULL)) {
+            if (LIKELY(cursor->tnode->parent != NULL)) {
                 for (n = cursor->tnode->parent; n->parent &&
                          (tnode_get_side(n) == TNODE_LEFT); n = n->parent);
                 if (n->parent && tnode_get_side(n) != TNODE_RIGHT) {
@@ -1050,7 +1056,7 @@ int ttree_cursor_prev(TtreeCursor *cursor)
             }
         }
 
-        if (likely(n != NULL)) {
+        if (LIKELY(n != NULL)) {
             cursor->tnode = n;
             cursor->idx = cursor->tnode->max_idx;
             cursor->side = TNODE_BOUND;
@@ -1100,7 +1106,10 @@ static void __print_tree(TtreeNode *tnode, int offs, void (*fn)(TtreeNode *tnode
         printf(" ");
 
     printf("<%d> ", tnode_num_keys(tnode));
-    fn(tnode);
+    if (fn) {
+        fn(tnode);
+    }
+
     __print_tree(tnode->left, offs + 1, fn);
     __print_tree(tnode->right, offs + 1, fn);
 }
