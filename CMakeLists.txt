@@ -15,3 +15,10 @@ include_directories(${ttree_source_dir})
 ADD_LIBRARY(ttree STATIC ttree.c)
 add_subdirectory(tests/unit EXCLUDE_FROM_ALL)
 
+set(DOXYGEN_SOURCE_DIR ${CMAKE_SOURCE_DIR})
+set(DOXYGEN_OUTPUT_DIR docs)
+string(REGEX REPLACE ";" " " CMAKE_DOXYGEN_INPUT_LIST "${DOXYGEN_SOURCE_DIR}")
+configure_file(Doxyfile.in ${CMAKE_CURRENT_BINARY_DIR}/Doxyfile)
+set(DOCS_TARGET "docs")
+add_custom_target(${DOCS_TARGET} /usr/bin/doxygen ${CMAKE_CURRENT_BINARY_DIR}/Doxyfile)
+

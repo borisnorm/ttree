@@ -60,6 +60,30 @@ enum ttree_cursor_state {
 #define TNODE_ROOT  TNODE_UNDEF /**< T*-tree node is root */
 #define TNODE_BOUND TNODE_UNDEF /**< T*-tree node bounds searhing value */
 
+/**
+ * @brief T*-tree node structure.
+ *
+ * T*-tree node has an array of items, link to its parent
+ * node and two links to its childs: left and right one.
+ * A node with N keys can be drawn as following:
+ *          [^]        <- pointer to parent
+ *     [k1, ... kN]    <- Array of items
+ *         /  \
+ *       (L)  (R)      <- Pointers to left and right childs.
+ *
+ * T*-tree node also has a pointer to its successor, i.e.
+ * another node following it in sorted order. This feature allows
+ * easily represent whole tree as a sorted list by taking the lefmost
+ * tree's node and traveling through its sucessors list.
+ *
+ * T*-tree defines three type of nodes:
+ * 1) Node that hasn't left and right child is called "leaf node".
+ * 2) Node that has only one child is called "half-leaf node".
+ * 3) Finally, node that has both left and right childs
+ *    is called "internal node"
+ *
+ * @see Ttree
+ */
 typedef struct ttree_node {
     struct ttree_node *parent;     /**< Pointer to node's parent */
     struct ttree_node *successor;  /**< Pointer to node's soccussor */
@@ -79,11 +103,18 @@ typedef struct ttree_node {
             unsigned node_side :4;       /**< Node's side(TNODE_LEFT, TNODE_RIGHT or TNODE_ROOT) */
         };
     };
-    void *keys[TNODE_ITEMS_MIN];         /**< First two items of T*-tree node keys array */
+
+    /**
+     * First two items of T*-tree node keys array
+     */
+    void *keys[TNODE_ITEMS_MIN];
 } TtreeNode;
 
 typedef int (*ttree_cmp_func_fn)(void *key1, void *key2);
 
+/**
+ * @brief T*-tree structure
+ */
 typedef struct ttree {
     TtreeNode *root;            /**< A pointer to T*-tree root node */
     ttree_cmp_func_fn cmp_func; /**< User-defined key comparing function */
