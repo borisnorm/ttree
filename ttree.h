@@ -60,10 +60,6 @@ enum ttree_cursor_state {
 #define TNODE_ROOT  TNODE_UNDEF /**< T*-tree node is root */
 #define TNODE_BOUND TNODE_UNDEF /**< T*-tree node bounds searhing value */
 
-/**
- * @struct TtreeNode
- * @brief T*-tree node structure
- */
 typedef struct ttree_node {
     struct ttree_node *parent;     /**< Pointer to node's parent */
     struct ttree_node *successor;  /**< Pointer to node's soccussor */
@@ -86,18 +82,8 @@ typedef struct ttree_node {
     void *keys[TNODE_ITEMS_MIN];         /**< First two items of T*-tree node keys array */
 } TtreeNode;
 
-/**
- * @typedef int (*ttree_cmp_func_t)(void *data1, void *data2)
- * @brief T*-tree keys comparing function.
- * Must return negative value if @a key1 is leaster than @a key2,
- * positive if @a key1 is greater than @a key2 and 0 when they're equal.
- */
 typedef int (*ttree_cmp_func_fn)(void *key1, void *key2);
 
-/**
- * @struct Ttree
- * @brief T*-tree main structure.
- */
 typedef struct ttree {
     TtreeNode *root;            /**< A pointer to T*-tree root node */
     ttree_cmp_func_fn cmp_func; /**< User-defined key comparing function */
@@ -105,16 +91,6 @@ typedef struct ttree {
     int keys_per_tnode;         /**< Number of keys per each T*-tree node */
 } Ttree;
 
-/**
- * @struct tnode_meta_t
- * @brief This structure is used to describe T*-tree node meta information.
- *
- * T*-tree node meta information helps to tie particular key with a value
- * holding in a T*-tree. Using tnode_meta_t user may know what exactly node
- * holds given key and which index this key has.
- *
- * @see TtreeNode
- */
 typedef struct ttree_cursor {
     Ttree *ttree;
     TtreeNode *tnode; /**< A pointer to T*-tree node */
@@ -138,160 +114,70 @@ typedef struct ttree_cursor {
 #endif /* CONFIG_DEBUG_TTREE */
 
 
-/**
- * @brief Get real size of T*-tree node in bytes
- * @paran ttree - A pointer to T*-tree
- * @return T*-tree node size
- */
 #define tnode_size(ttree)                                               \
     (sizeof(TtreeNode) + (ttree->keys_per_tnode - \
                           TNODE_ITEMS_MIN) * sizeof(uintptr_t))
 
-/**
- * @brief Get current number of keys holding in T*-tree node
- * @param ttree - A pointer to T*-tree node
- * @return Number of keys in node
- */
 #define tnode_num_keys(tnode)                   \
     (((tnode)->max_idx - (tnode)->min_idx) + 1)
 
-/**
- * @brief Check if T*-tree node is empty
- * @param tnode - A pointer to node
- * @return Bool.
- */
 #define tnode_is_empty(tnode)                   \
     (!tnode_num_keys(tnode))
 
-/**
- * @brief Check if T*-tree node is full.
- * @param ttree - A pointer to T*-tree
- * @param tnode - A pointer to target node.
- * @return Bool.
- */
 #define tnode_is_full(ttree, tnode)                     \
     (tnode_num_keys(tnode) == (ttree)->keys_per_tnode)
 
-/**
- * @brief Get item address from its key
- * @param ttree - A pointer to T*-tree
- * @param key   - A poineter to key
- * @return An address of item
- */
 #define ttree_key2item(ttree, key)                  \
     ((void *)((char *)(key) - (ttree)->key_offs))
 
-/**
- * @brief Get key address by an item.
- * @param ttree - A pointer to T*-tree
- * @param item  - A pointer to item
- * @return An address of key field of @a item.
- */
 #define ttree_item2key(ttree, item)                 \
     ((void *)((char *)(item) + (ttree)->key_offs))
 
-/**
- * @brief Fetch key from T*-tree node by key's index
- * @param tnode - A pointer to target node.
- * @param idx   - Key index
- * @return An address of key holding by @a idx.
- */
 #define tnode_key(tnode, idx)                   \
     ((tnode)->keys[(idx)])
 
-/**
- * @brief Get an address of minimum key in T*-tree node
- * @param tnode - A pointer to target node.
- * @return An address of min. key in a node.
- */
 #define tnode_key_min(tnode) tnode_key(tnode, (tnode)->min_idx)
 
-/**
- * @brief Get an address of maximum key in T*-tree node
- * @param tnode - A pointer to target node.
- * @return An address of its max. key.
- */
 #define tnode_key_max(tnode) tnode_key(tnode, (tnode)->max_idx)
 
-/**
- * @brief Get greatest lower bound node of a given node.
- * @param tnode - A pointer to subtree
- * @return A pointer to node holding greatest lower bound.
- */
 #define Ttreenode_glb(tnode)                    \
     __tnode_get_bound(tnode, TNODE_LEFT)
 
-/**
- * @brief Get least upper bound node of a given node.
- * @param tnode - A pointer to subtree.
- * @return A pointer to node holding least upper bound of given subtree.
- */
 #define Ttreenode_lub(tnode)                    \
     __tnode_get_bound(tnode, TNODE_RIGHT)
 
-/**
- * @brief Get subtree's leftmost node
- * @param tnode - A pointer to subtree
- * @return Its leftmost node
- */
 #define Ttreenode_leftmost(tnode)               \
     __tnode_sidemost(tnode, TNODE_LEFT)
 
-/**
- * @brief Get subtree's rightmost node
- * @param tnode - A pointer to subtree.
- * @return Its rightmost node.
- */
 #define Ttreenode_rightmost(tnode)              \
     __tnode_sidemost(tnode, TNODE_RIGHT)
 
-/**
- * @brief Iterate through each non-empty index in a T*-tree node
- * @param tnode - A pointer to target node
- * @param iter  - An integer using for iteration.
- * @see tnode_key
- */
 #define tnode_for_each_index(tnode, iter)                               \
     for ((iter) = (tnode)->min_idx; (iter) <= (tnode)->max_idx; (iter)++)
 
-/**
- * @brief Set T*-tree node side to @a side
- * @param tnode - A pointer to target node
- * @param side  - Node side to set
- * @see tnode_get_side
- */
 static inline void tnode_set_side(TtreeNode *tnode, int side)
 {
     tnode->node_side &= ~0x3;
     tnode->node_side |= (side + 1);
 }
 
-/**
- * @brief Get T*-tree node side.
- * @param tnode - A pointer to target node.
- * @return Side of @a tnode.
- * @see tnode_set_side
- */
 static inline int tnode_get_side(TtreeNode *tnode)
 {
     return ((tnode->node_side & 0x03) - 1);
 }
 
-/**
- * @brief Check if T*-tree is absolutely empty
- * @param ttree - A pointer to T*-tree
- * @return Bool.
- */
 #define ttree_is_empty(ttree)                   \
     (!(ttree)->root)
 
 /**
  * @brief Initialize new T*-tree.
- * @param ttree[out]  - A pointer to T*-tree to initialize
- * @param cmpf        - A pointer to user-defined compare function
- * @param data_struct - Item's structure
- * @param key_field   - Field in a @a data_struct that is used as a key.
- * @see Ttree
+ * @param ttree[out]  - A pointer to T*-tree structure for initialization
+ * @param num_keys    - A number of keys per T*-tree node.
+ * @param cmpf        - A pointer to user-defined comparison function
+ * @param data_struct - Structure containing an item that will be
+ *                      used by T*-tree as a key.
+ * @param key_field   - Name of a key field in a @a data_struct.
+ * @return 0 on success, -1 on error.
  */
 #define ttree_init(ttree, num_keys, cmpf, data_struct, key_field)   \
     __ttree_init(ttree, num_keys, cmpf, offsetof(data_struct, key_field))
@@ -303,8 +189,8 @@ static inline int tnode_get_side(TtreeNode *tnode)
  * @param key_offs   - Offset from item structure start to its key field.
  * @see Ttree
  */
-void __ttree_init(Ttree *ttree, int num_keys,
-                  ttree_cmp_func_fn cmpf, size_t key_offs);
+int __ttree_init(Ttree *ttree, int num_keys,
+                 ttree_cmp_func_fn cmpf, size_t key_offs);
 
 /**
  * @brief Destroy whole T*-tree

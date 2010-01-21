@@ -36,9 +36,24 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdint.h>
+#include <errno.h>
 #include <sys/types.h>
 
 #include "ttree.h"
+
+#ifndef DEBUG_TTREE
+#define SET_ERRNO(err) errno = (err)
+#else /* !DEBUG_TTREE */
+#define SET_ERRNO(err)                                                  \
+    do {                                                                \
+        if ((err) != 0) {                                               \
+            fprintf(stderr, "[TTREE] setting errno = %d. "              \
+                    "(%s:%s:%d)\n", __FILE__, __FUNCTION__, __LINE__);  \
+        }                                                               \
+                                                                        \
+        errno = (err);                                                  \
+    } while (0)
+#endif /* DEBUG_TTREE */
 
 /* Index number of first key in a T*-tree node when a node has only one key. */
 #define first_tnode_idx(ttree)                  \
@@ -589,17 +604,24 @@ static void fixup_after_deletion(Ttree *ttree, TtreeNode *n, TtreeCursor *cursor
     }
 }
 
-void __ttree_init(Ttree *ttree, int num_keys,
-                  ttree_cmp_func_fn cmpf, size_t key_offs)
+int __ttree_init(Ttree *ttree, int num_keys,
+                 ttree_cmp_func_fn cmpf, size_t key_offs)
 {
     TTREE_CT_ASSERT((TTREE_DEFAULT_NUMKEYS >= TNODE_ITEMS_MIN) &&
                     (TTREE_DEFAULT_NUMKEYS <= TNODE_ITEMS_MAX));
-    TTREE_ASSERT((num_keys >= TNODE_ITEMS_MIN) &&
-                 (num_keys <= TNODE_ITEMS_MAX));
+
+    if ((num_keys < TNODE_ITEMS_MIN) ||
+        (num_keys > TNODE_ITEMS_MAX) || !ttree || !cmpf) {
+        SET_ERRNO(EINVAL);
+        return -1;
+    }
+
     ttree->root = NULL;
     ttree->keys_per_tnode = num_keys;
     ttree->cmp_func = cmpf;
     ttree->key_offs = key_offs;
+
+    return 0;
 }
 
 void ttree_destroy(Ttree *ttree)
