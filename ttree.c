@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2008, 2009 Dan Kruchinin <dan.kruchinin@gmail.com>
+ * Copyright (c) 2008, 2009 Dan Kruchinin <dan.kruchiniGn@gmail.com>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -737,15 +737,16 @@ int ttree_insert(Ttree *ttree, void *item)
 {
     TtreeCursor cursor;
 
+    /* If the tree already contains the same key item has, signal an error. */
     if (ttree_lookup(ttree, ttree_item2key(ttree, item), &cursor)) {
         return -1;
     }
 
-    ttree_insert_placeful(&cursor, item);
+    ttree_insert_at_cursor(&cursor, item);
     return 0;
 }
 
-void ttree_insert_placeful(TtreeCursor *cursor, void *item)
+void ttree_insert_at_cursor(TtreeCursor *cursor, void *item)
 {
     Ttree *ttree = cursor->ttree;
     TtreeNode *at_node, *n;
@@ -820,15 +821,15 @@ void ttree_insert_placeful(TtreeCursor *cursor, void *item)
         return;
     }
 
-  create_new_node:
+create_new_node:
     n = allocate_ttree_node(ttree);
     n->keys[cursor->idx] = key;
     n->min_idx = n->max_idx = cursor->idx;
     n->parent = at_node;
-    at_node->sides[cursor->side] = n;  
+    at_node->sides[cursor->side] = n;
     tnode_set_side(n, cursor->side);
-    cursor->tnode = n;  
-    fixup_after_insertion(ttree, n, cursor);  
+    cursor->tnode = n;
+    fixup_after_insertion(ttree, n, cursor);
 }
 
 void *ttree_delete(Ttree *ttree, void *key)
@@ -840,11 +841,11 @@ void *ttree_delete(Ttree *ttree, void *key)
     if (!ret)
         return ret;
 
-    ttree_delete_placeful(&cursor);
+    ttree_delete_at_cursor(&cursor);
     return ret;
 }
 
-void *ttree_delete_placeful(TtreeCursor *cursor)
+void *ttree_delete_at_cursor(TtreeCursor *cursor)
 {
     Ttree *ttree = cursor->ttree;
     TtreeNode *tnode, *n;

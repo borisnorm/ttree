@@ -209,6 +209,7 @@ static inline int tnode_get_side(TtreeNode *tnode)
  *                      used by T*-tree as a key.
  * @param key_field   - Name of a key field in a @a data_struct.
  * @return 0 on success, -1 on error.
+ * @see __ttree_init
  */
 #define ttree_init(ttree, num_keys, cmpf, data_struct, key_field)   \
     __ttree_init(ttree, num_keys, cmpf, offsetof(data_struct, key_field))
@@ -216,9 +217,10 @@ static inline int tnode_get_side(TtreeNode *tnode)
 /**
  * @brief More detailed T*-tree initialization.
  * @param ttree[out] - A pointer to T*-tree to initialize
- * @param cmpf       - User defined compare function
+ * @param cmpf       - User defined comparison function
  * @param key_offs   - Offset from item structure start to its key field.
- * @see Ttree
+ * @return 0 on success, -1 on error.
+ * @see ttree_init
  */
 int __ttree_init(Ttree *ttree, int num_keys,
                  ttree_cmp_func_fn cmpf, size_t key_offs);
@@ -247,10 +249,15 @@ void ttree_destroy(Ttree *ttree);
 void *ttree_lookup(Ttree *ttree, void *key, TtreeCursor *cursor);
 
 /**
- * @brief Insert an item @a item in a T*-tree
- * @param ttree - A pointer to tree.
- * @param item  - A pointer to item to insert.
- * @return 0 if all is ok, negative value if item is duplicate.
+ * @brief Insert an item @a item in the T*-tree @ttree
+ *
+ * ttree_insert function inserts given item @a item in the T*-tree.
+ * If tree already contains a key euqual to the key of inserting item,
+ * error is returned.
+ *
+ * @param ttree - A pointer to a tree.
+ * @param item  - A pointer to item that will be inserted.
+ * @return 0 if all is ok, negative value if item's key is duplicated.
  */
 int ttree_insert(Ttree *ttree, void *item);
 
@@ -261,6 +268,8 @@ int ttree_insert(Ttree *ttree, void *item);
  * @return A pointer to removed item or NULL item with key @a key wasn't found.
  */
 void *ttree_delete(Ttree *ttree, void *key);
+
+void ttree_insert_at_cursor(TtreeCursor *cursor, void *item);
 
 /**
  * @brief "Placeful" item insertion in a T*-tree.
@@ -286,7 +295,7 @@ void *ttree_delete(Ttree *ttree, void *key);
  * @see ttree_lookup
  * @see ttree_delete_placeful
  */
-void ttree_insert_placeful(TtreeCursor *cursor, void *item);
+//void ttree_insert_placeful(TtreeCursor *cursor, void *item);
 
 /**
  * @brief "Placeful" item deletion from a T*-tree.
@@ -304,7 +313,7 @@ void ttree_insert_placeful(TtreeCursor *cursor, void *item);
  * @see ttree_lookup
  * @see ttree_delete_placeful
  */
-void *ttree_delete_placeful(TtreeCursor *cursor);
+void *ttree_delete_at_cursor(TtreeCursor *cursor);
 
 /**
  * @brief Replace an item saved in a T*-tree by a key @a key.

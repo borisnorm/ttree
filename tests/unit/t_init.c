@@ -26,7 +26,7 @@ int mycmpfunc(void *k1, void *k2)
         errno = 0;                                              \
     } while (0)
 
-bool run_test(void)
+UTEST_FUNCTION(ut_init, unused)
 {
     Ttree ttree;
     int ret;
@@ -45,15 +45,18 @@ bool run_test(void)
     UTEST_PASSED();
 }
 
-int main(void)
+DEFINE_UTESTS_LIST(tests) = {
+    {
+        .test_name = "UT_INIT",
+        .test_descr = "Testing ttree_init and __ttree_init functions.",
+        .test_function = ut_init,
+        UTEST_ARGS_LIST { UTEST_ARGS_LIST_END, },
+    },
+    UTESTS_LIST_END,
+};
+
+int main(int argc, char *argv[])
 {
-    bool ret;
-
-    UTEST_DESCRIBE("Testing ttree_init and __ttree_init functions: ");
-    ret = run_test();
-    if (!ret) {
-        return UTEST_ERR;
-    }
-
-    return UTEST_OK;
+    utest_main(tests, argc, argv);
+    return 0;
 }
