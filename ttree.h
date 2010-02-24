@@ -51,10 +51,16 @@ enum {
     TNODE_RIGHT,      /**< Right side */
 };
 
+enum {
+    TTREE_CSR_ROOT,
+    TTREE_CSR_START,
+    TTREE_CSR_END,
+};
+
 enum ttree_cursor_state {
-    TT_CSR_UNTIED = 0,
-    TT_CSR_TIED,
-    TT_CSR_PENDING,
+    CURSOR_CLOSED = 0,
+    CURSOR_OPENED,
+    CURSOR_PENDING,
 };
 
 #define TNODE_ROOT  TNODE_UNDEF /**< T*-tree node is root */
@@ -327,7 +333,7 @@ void *ttree_delete_at_cursor(TtreeCursor *cursor);
  */
 int ttree_replace(Ttree *ttree, void *key, void *new_item);
 
-void ttree_cursor_init(Ttree *ttree, TtreeCursor *cursor);
+void ttree_cursor_open(TtreeCursor *cursor, Ttree *tree, int place);
 int ttree_cursor_next(TtreeCursor *cursor);
 int ttree_cursor_prev(TtreeCursor *cursor);
 
@@ -366,8 +372,9 @@ void ttree_print(Ttree *ttree, void (*fn)(TtreeNode *tnode));
  */
 static inline TtreeNode *__tnode_sidemost(TtreeNode *tnode, int side)
 {
-    if (!tnode)
+    if (!tnode) {
         return NULL;
+    }
     else {
         TtreeNode *n;
 

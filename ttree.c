@@ -279,28 +279,40 @@ static void rotate_single(TtreeNode **target, int side)
  *      [l] x2             x1 x3 x4 x2
  *     /  \
  *    x3  x4
- */  
+ */
 static void rotate_double(TtreeNode **target, int side)
 {
     int opside = opposite_side(side);
     TtreeNode *n = (*target)->sides[side];
-  
+
     __rotate_single(&n, opside);
-    /* Balance recalculation is very similar to recalculation after simple single rotation. */
-    if (is_internal_node(n->sides[side]))
+
+    /*
+     * Balance recalculation is very similar to recalculation after
+     * simple single rotation.
+     */
+    if (is_internal_node(n->sides[side])) {
         n->sides[side]->bfc = (n->bfc == side2bfc(opside)) ? side2bfc(side) : 0;
-    else
-        n->sides[side]->bfc = !!(n->sides[side]->right) - !!(n->sides[side]->left);
+    }
+    else {
+        n->sides[side]->bfc =
+            !!(n->sides[side]->right) - !!(n->sides[side]->left);
+    }
 
     TTREE_ASSERT(abs(n->sides[side]->bfc) < 2);
     n = n->parent;
     __rotate_single(target, side);
-    if (is_internal_node(n))
+    if (is_internal_node(n)) {
         n->bfc = ((*target)->bfc == side2bfc(side)) ? side2bfc(opside) : 0;
-    else
+    }
+    else {
         n->bfc = !!(n->right) - !!(n->left);
-  
-    /* new root node of subtree is always ideally balanced after double rotation. */
+    }
+
+    /*
+     * new root node of subtree is always ideally balanced
+     * after double rotation.
+     */
     TTREE_ASSERT(abs(n->bfc) < 2);
     (*target)->bfc = 0;
 }
@@ -357,7 +369,8 @@ static void rebalance(Ttree *ttree, TtreeNode **node, TtreeCursor *cursor)
         }
         else {
             /*
-             * Left child was selected. So its N - 1 items(starting after the min one)
+             * Left child was selected. So its N - 1 items
+             * (starting after the min one)
              * will be copied and inserted before parent's single item.
              */
             n = (*node)->left;
@@ -393,19 +406,20 @@ static inline void __add_successor(TtreeNode *n)
 {
     /*
      * After new leaf node was added, its successor should be
-     * fixed. Also it(successor) could became a successor of the node 
+     * fixed. Also it(successor) could became a successor of the node
      * higher than the given one.
      * There are several possible cases of such situation:
      * 1) If new node is added as a right child, it inherites
-     *    successor of its parent. And it itself becomes a successor of its parent.
+     *    successor of its parent. And it itself becomes a successor
+     *    of its parent.
      * 2) If it is a left child, its parent will be the successor.
      * 2.1) If parent itself is a right child, then newly added node becomes
      *      the successor of parent's parent.
      * 2.2) Otherwise it becomes a successor of one of nodes located higher.
-     *      In this case, we should browse up the tree starting from parent's parent.
-     *      One of the nodes on the path *may* have a successor equals to parent of a
-     *      newly added node. If such node will be found, its successor should be changed
-     *      to a newly added node.
+     *      In this case, we should browse up the tree starting from
+     *      parent's parent. One of the nodes on the path *may* have a successor
+     *      equals to parent of a newly added node. If such node will be found,
+     *      its successor should be changed to a newly added node.
      */
     if (tnode_get_side(n) == TNODE_RIGHT) {
         n->successor = n->parent->successor;
@@ -413,8 +427,9 @@ static inline void __add_successor(TtreeNode *n)
     }
     else {
         n->successor = n->parent;
-        if (tnode_get_side(n->parent) == TNODE_RIGHT)
+        if (tnode_get_side(n->parent) == TNODE_RIGHT) {
             n->parent->parent->successor = n;
+        }
         else if (tnode_get_side(n->parent) == TNODE_LEFT) {
             register TtreeNode *node;
 
@@ -431,18 +446,21 @@ static inline void __add_successor(TtreeNode *n)
 static inline void __remove_successor(TtreeNode *n)
 {
     /*
-     * Node removing could affect the successor of one of nodes with higher level,
-     * so it should be fixed. Since T*-tree node deletion algorithm
+     * Node removing could affect the successor of one of nodes
+     * with higher level, so it should be fixed.
+     * Since T*-tree node deletion algorithm
      * assumes that ony leafs are removed, successor fixing
      * is opposite to successor adding algorithm.
      */
-    if (tnode_get_side(n) == TNODE_RIGHT)
+    if (tnode_get_side(n) == TNODE_RIGHT) {
         n->parent->successor = n->successor;
-    else if (tnode_get_side(n->parent) == TNODE_RIGHT)
+    }
+    else if (tnode_get_side(n->parent) == TNODE_RIGHT) {
         n->parent->parent->successor = n->parent;
+    }
     else {
         register TtreeNode *node = n;
-      
+
         while ((node = node->parent)) {
             if (node->successor == n) {
                 node->successor = n->parent;
@@ -452,7 +470,8 @@ static inline void __remove_successor(TtreeNode *n)
     }
 }
 
-static void fixup_after_insertion(Ttree *ttree, TtreeNode *n, TtreeCursor *cursor)
+static void fixup_after_insertion(Ttree *ttree, TtreeNode *n,
+                                  TtreeCursor *cursor)
 {
     int bfc_delta = get_bfc_delta(n);
     TtreeNode *node = n;
@@ -465,8 +484,9 @@ static void fixup_after_insertion(Ttree *ttree, TtreeNode *n, TtreeCursor *curso
          * if node becomes balanced, tree balance is ok,
          * so process may be stopped here
          */
-        if (!node->bfc)
+        if (!node->bfc) {
             return;
+        }
         if (subtree_is_unbalanced(node)) {
             /*
              * Because of nature of T-tree rebalancing, just inserted item
@@ -474,22 +494,31 @@ static void fixup_after_insertion(Ttree *ttree, TtreeNode *n, TtreeCursor *curso
              * Thus if T-tree cursor was specified we have to take care of it.
              */
             rebalance(ttree, &node, cursor);
-            /* single or double rotation tree becomes balanced and we can stop here. */
+
+            /*
+             * single or double rotation tree becomes balanced
+             * and we can stop here.
+             */
             return;
         }
-    
+
         bfc_delta = get_bfc_delta(node);
     }
 }
 
-static void fixup_after_deletion(Ttree *ttree, TtreeNode *n, TtreeCursor *cursor)
+static void fixup_after_deletion(Ttree *ttree, TtreeNode *n,
+                                 TtreeCursor *cursor)
 {
     TtreeNode *node = n->parent;
     int bfc_delta = get_bfc_delta(n);
 
     __remove_successor(n);
-    /* Unlike balance fixing after insertion, deletion may require several rotations. */
-    while (node) {    
+
+    /*
+     * Unlike balance fixing after insertion,
+     * deletion may require several rotations.
+     */
+    while (node) {
         node->bfc -= bfc_delta;
         /*
          * If node's balance factor was 0 and becomes 1 or -1, we can stop.
@@ -497,10 +526,10 @@ static void fixup_after_deletion(Ttree *ttree, TtreeNode *n, TtreeCursor *cursor
         if (!(node->bfc + bfc_delta))
             break;
 
-        bfc_delta = get_bfc_delta(node); 
+        bfc_delta = get_bfc_delta(node);
         if (subtree_is_unbalanced(node)) {
             TtreeNode *tmp = node;
-      
+
             rebalance(ttree, &tmp, cursor);
             /*
              * If after rotation subtree height is not changed,
@@ -508,10 +537,10 @@ static void fixup_after_deletion(Ttree *ttree, TtreeNode *n, TtreeCursor *cursor
              */
             if (tmp->bfc)
                 break;
-      
+
             node = tmp;
         }
-    
+
         node = node->parent;
     }
 }
@@ -555,7 +584,7 @@ void *ttree_lookup(Ttree *ttree, void *key, TtreeCursor *cursor)
     TtreeNode *n, *marked_tn, *target;
     int side = TNODE_BOUND, cmp_res, idx;
     void *item = NULL;
-    enum ttree_cursor_state st = TT_CSR_UNTIED;
+    enum ttree_cursor_state st = CURSOR_CLOSED;
 
     /*
      * Classical T-tree search algorithm is O(log(2N/M) + log(M - 2))
@@ -589,7 +618,7 @@ void *ttree_lookup(Ttree *ttree, void *key, TtreeCursor *cursor)
             side = TNODE_BOUND;
             idx = n->min_idx;
             item = ttree_key2item(ttree, tnode_key_min(n));
-            st = TT_CSR_TIED;
+            st = CURSOR_OPENED;
             goto out;
         }
 
@@ -604,7 +633,7 @@ void *ttree_lookup(Ttree *ttree, void *key, TtreeCursor *cursor)
             if (!c) {
                 item = ttree_key2item(ttree, tnode_key_max(target));
                 idx = target->max_idx;
-                st = TT_CSR_TIED;
+                st = CURSOR_OPENED;
             }
             else { /* make internal binary search */
                 struct tnode_lookup tnl;
@@ -613,7 +642,7 @@ void *ttree_lookup(Ttree *ttree, void *key, TtreeCursor *cursor)
                 tnl.low_bound = target->min_idx + 1;
                 tnl.high_bound = target->max_idx - 1;
                 item = lookup_inside_tnode(ttree, target, &tnl, &idx);
-                st = (item != NULL) ? TT_CSR_TIED : TT_CSR_PENDING;
+                st = (item != NULL) ? CURSOR_OPENED : CURSOR_PENDING;
             }
 
             goto out;
@@ -630,12 +659,12 @@ void *ttree_lookup(Ttree *ttree, void *key, TtreeCursor *cursor)
         side = TNODE_BOUND;
         idx = ((marked_tn != target) || (cmp_res < 0)) ?
             target->min_idx : (target->max_idx + 1);
-        st = TT_CSR_PENDING;
+        st = CURSOR_PENDING;
     }
 
-  out:
+out:
     if (cursor) {
-        ttree_cursor_init(ttree, cursor);
+        ttree_cursor_open(cursor, ttree, TTREE_CSR_ROOT);
         cursor->tnode = target;
         cursor->side = side;
         cursor->idx = idx;
@@ -666,9 +695,9 @@ void ttree_insert_at_cursor(TtreeCursor *cursor, void *item)
     void *key;
 
     TTREE_ASSERT(cursor->ttree != NULL);
+    //TTREE_ASSERT(cursor->state == CURSOR_PENDING);
     key = ttree_item2key(ttree, item);
     n = at_node = cursor->tnode;
-    cursor->state = TT_CSR_TIED;
     if (!ttree->root) { /* The root node has to be created. */
         at_node = allocate_ttree_node(ttree);
         at_node->keys[first_tnode_idx(ttree)] = key;
@@ -678,10 +707,9 @@ void ttree_insert_at_cursor(TtreeCursor *cursor, void *item)
         cursor->tnode = at_node;
         cursor->idx = at_node->min_idx;
         cursor->side = TNODE_BOUND;
+        cursor->state = CURSOR_OPENED;
         return;
     }
-
-    __validate_cursor_dbg(cursor);
     if (cursor->side == TNODE_BOUND) {
         if (tnode_is_full(ttree, n)) {
             /*
@@ -700,7 +728,8 @@ void ttree_insert_at_cursor(TtreeCursor *cursor, void *item)
 
             /*
              * If current node hasn't successor and right child
-             * New node have to be created. It'll become the right child of the current node.
+             * New node have to be created. It'll become the right child
+             * of the current node.
              */
             if (!n->successor || !n->right) {
                 cursor->side = TNODE_RIGHT;
@@ -730,6 +759,7 @@ void ttree_insert_at_cursor(TtreeCursor *cursor, void *item)
 
         increase_tnode_window(ttree, at_node, &cursor->idx);
         at_node->keys[cursor->idx] = key;
+        cursor->state = CURSOR_OPENED;
         return;
     }
 
@@ -741,6 +771,7 @@ create_new_node:
     at_node->sides[cursor->side] = n;
     tnode_set_side(n, cursor->side);
     cursor->tnode = n;
+    cursor->state = CURSOR_OPENED;
     fixup_after_insertion(ttree, n, cursor);
 }
 
@@ -750,8 +781,9 @@ void *ttree_delete(Ttree *ttree, void *key)
     void *ret;
 
     ret = ttree_lookup(ttree, key, &cursor);
-    if (!ret)
+    if (!ret) {
         return ret;
+    }
 
     ttree_delete_at_cursor(&cursor);
     return ret;
@@ -763,13 +795,14 @@ void *ttree_delete_at_cursor(TtreeCursor *cursor)
     TtreeNode *tnode, *n;
     void *ret;
 
-    __validate_cursor_dbg(cursor);
+    TTREE_ASSERT(cursor->ttree != NULL);
+    TTREE_ASSERT(cursor->state == CURSOR_OPENED);
     tnode = cursor->tnode;
     ret = ttree_key2item(ttree, tnode->keys[cursor->idx]);
     decrease_tnode_window(ttree, tnode, &cursor->idx);
     if (UNLIKELY(cursor->idx > tnode->max_idx)) {
         if (cursor->idx <= ttree->keys_per_tnode - 1) {
-            cursor->state = TT_CSR_PENDING;
+            cursor->state = CURSOR_PENDING;
         }
         else {
             ttree_cursor_next(cursor);
@@ -794,10 +827,12 @@ void *ttree_delete_at_cursor(TtreeCursor *cursor)
         idx = tnode->max_idx + 1;
         increase_tnode_window(ttree, tnode, &idx);
         tnode->keys[idx] = n->keys[n->min_idx++];
-        if (UNLIKELY(cursor->idx > tnode->max_idx))
+        if (UNLIKELY(cursor->idx > tnode->max_idx)) {
             cursor->idx = tnode->max_idx;
-        if (!tnode_is_empty(n) && is_leaf_node(n))
+        }
+        if (!tnode_is_empty(n) && is_leaf_node(n)) {
             return ret;
+        }
 
         /*
          * If we're here, then successor is either a half-leaf
@@ -810,27 +845,33 @@ void *ttree_delete_at_cursor(TtreeCursor *cursor)
 
         n = tnode->left ? tnode->left : tnode->right;
         items = tnode_num_keys(n);
-    
-        /* If half-leaf can not be merged with a leaf, the proccess is completed. */
-        if (items > (ttree->keys_per_tnode - tnode_num_keys(tnode)))
+
+        /*
+         * If half-leaf can not be merged with a leaf,
+         * the proccess is completed.
+         */
+        if (items > (ttree->keys_per_tnode - tnode_num_keys(tnode))) {
             return ret;
-    
+        }
+
         if (tnode_get_side(n) == TNODE_RIGHT) {
             /*
              * Merge current node with its right leaf. Items from the leaf
              * are placed after the maximum item in a node.
              */
-            diff = (ttree->keys_per_tnode - tnode->max_idx - items) - 1;      
+            diff = (ttree->keys_per_tnode - tnode->max_idx - items) - 1;
             if (diff < 0) {
                 memcpy(tnode->keys + tnode->min_idx + diff,
-                       tnode->keys + tnode->min_idx, sizeof(void *) * tnode_num_keys(tnode));
+                       tnode->keys + tnode->min_idx, sizeof(void *) *
+                       tnode_num_keys(tnode));
                 tnode->min_idx += diff;
                 tnode->max_idx += diff;
                 if (cursor->tnode == tnode) {
                     cursor->idx += diff;
                 }
             }
-            memcpy(tnode->keys + tnode->max_idx + 1, n->keys + n->min_idx, sizeof(void *) * items);
+            memcpy(tnode->keys + tnode->max_idx + 1, n->keys + n->min_idx,
+                   sizeof(void *) * items);
             tnode->max_idx += items;
         }
         else {
@@ -841,7 +882,7 @@ void *ttree_delete_at_cursor(TtreeCursor *cursor)
             diff = tnode->min_idx - items;
             if (diff < 0) {
                 register int i;
-        
+
                 for (i = tnode->max_idx; i >= tnode->min_idx; i--)
                     tnode->keys[i - diff] = tnode->keys[i];
 
@@ -851,13 +892,14 @@ void *ttree_delete_at_cursor(TtreeCursor *cursor)
                     cursor->idx -= diff;
             }
 
-            memcpy(tnode->keys + tnode->min_idx - items, n->keys + n->min_idx, sizeof(void *) * items);
+            memcpy(tnode->keys + tnode->min_idx - items, n->keys + n->min_idx,
+                   sizeof(void *) * items);
             tnode->min_idx -= items;
         }
 
         n->min_idx = 1;
         n->max_idx = 0;
-        tnode = n;    
+        tnode = n;
     }
     if (!tnode_is_empty(tnode))
         return ret;
@@ -866,14 +908,14 @@ void *ttree_delete_at_cursor(TtreeCursor *cursor)
             cursor->tnode = tnode->successor;
             cursor->side = TNODE_BOUND;
             cursor->idx = cursor->tnode->min_idx;
-            cursor->state = TT_CSR_TIED;
+            cursor->state = CURSOR_OPENED;
         }
         else {
             cursor->tnode = NULL;
-            cursor->state = TT_CSR_UNTIED;
+            cursor->state = CURSOR_CLOSED;
         }
     }
-  
+
     /* if we're here, then current node will be removed from the tree. */
     n = tnode->parent;
     if (!n) {
@@ -899,31 +941,55 @@ int ttree_replace(Ttree *ttree, void *key, void *new_item)
     return 0;
 }
 
-void ttree_cursor_init(Ttree *ttree, TtreeCursor *cursor)
+void ttree_cursor_open(TtreeCursor *cursor, Ttree *ttree, int place)
 {
+    memset(cursor, 0, sizeof(*cursor));
     cursor->ttree = ttree;
-    cursor->tnode = NULL;
-    cursor->side = TNODE_BOUND;
-    cursor->idx = first_tnode_idx(cursor->ttree);
-    cursor->state = TT_CSR_UNTIED;
+    switch (place) {
+        case TTREE_CSR_START:
+            cursor->tnode = ttree_node_leftmost(ttree->root);
+            break;
+        case TTREE_CSR_END:
+            cursor->tnode = ttree_node_rightmost(ttree->root);
+            break;
+        default: /* TTREE_CSR_ROOT */
+            cursor->tnode = ttree->root;
+            break;
+    }
+    if (cursor->tnode) {
+        if (place == TTREE_CSR_END) {
+            cursor->idx = cursor->tnode->max_idx;
+        }
+        else {
+            cursor->idx = cursor->tnode->min_idx;
+        }
+
+        cursor->state = CURSOR_OPENED;
+        cursor->side = TNODE_BOUND;
+    }
+    else {
+        cursor->idx = first_tnode_idx(cursor->ttree);
+        cursor->state = CURSOR_CLOSED;
+    }
 }
 
 int ttree_cursor_next(TtreeCursor *cursor)
 {
-    if (UNLIKELY(cursor->state == TT_CSR_UNTIED))
+    if (UNLIKELY(cursor->state == CURSOR_CLOSED)) {
         return -1;
-  
-    __validate_cursor_dbg(cursor);
-    if (UNLIKELY(cursor->state == TT_CSR_PENDING)) {
+    }
+
+    if (UNLIKELY(cursor->state == CURSOR_PENDING)) {
         int ret = 0;
-    
-        if ((cursor->side == TNODE_LEFT) || (cursor->idx < cursor->tnode->min_idx)) {
+
+        if ((cursor->side == TNODE_LEFT) ||
+            (cursor->idx < cursor->tnode->min_idx)) {
             cursor->side = TNODE_BOUND;
             cursor->idx = cursor->tnode->min_idx;
-            cursor->state = TT_CSR_TIED;
+            cursor->state = CURSOR_OPENED;
         }
         else if (cursor->idx == cursor->tnode->max_idx)
-            cursor->state = TT_CSR_TIED;
+            cursor->state = CURSOR_OPENED;
         else
             ret = -1;
 
@@ -934,43 +1000,45 @@ int ttree_cursor_next(TtreeCursor *cursor)
             cursor->tnode = cursor->tnode->successor;
             cursor->idx = cursor->tnode->min_idx;
             cursor->side = TNODE_BOUND;
-            cursor->state = TT_CSR_TIED;
+            cursor->state = CURSOR_OPENED;
             return 0;
         }
-    
+
         if (LIKELY(tnode_is_full(cursor->ttree, cursor->tnode))) {
             cursor->side = TNODE_RIGHT;
             cursor->idx = first_tnode_idx(cursor->ttree);
         }
-        else {      
+        else {
             cursor->side = TNODE_BOUND;
             cursor->idx++;
         }
 
-        cursor->state = TT_CSR_PENDING;
+        cursor->state = CURSOR_PENDING;
         return -1;
     }
 
-    cursor->idx++;  
+    cursor->idx++;
     cursor->side = TNODE_BOUND;
-    cursor->state = TT_CSR_TIED;  
+    cursor->state = CURSOR_OPENED;
     return 0;
 }
 
 int ttree_cursor_prev(TtreeCursor *cursor)
 {
-    if (UNLIKELY(cursor->state == TT_CSR_UNTIED))
+    if (UNLIKELY(cursor->state == CURSOR_CLOSED)) {
         return -1;
+    }
 
-    __validate_cursor_dbg(cursor);
-    if (UNLIKELY(cursor->state == TT_CSR_PENDING)) {
-        if ((cursor->side == TNODE_RIGHT) || (cursor->idx > cursor->tnode->max_idx)) {
+    if (UNLIKELY(cursor->state == CURSOR_PENDING)) {
+        if ((cursor->side == TNODE_RIGHT) ||
+            (cursor->idx > cursor->tnode->max_idx)) {
             cursor->side = TNODE_BOUND;
             cursor->idx = cursor->tnode->max_idx;
-            cursor->state = TT_CSR_TIED;
+            cursor->state = CURSOR_OPENED;
             return 0;
         }
-        else if ((cursor->side == TNODE_LEFT) || (cursor->idx < cursor->tnode->min_idx)) {
+        else if ((cursor->side == TNODE_LEFT) ||
+                 (cursor->idx < cursor->tnode->min_idx)) {
             cursor->side = TNODE_BOUND;
             cursor->idx = cursor->tnode->min_idx;
         }
@@ -995,12 +1063,12 @@ int ttree_cursor_prev(TtreeCursor *cursor)
             cursor->tnode = n;
             cursor->idx = cursor->tnode->max_idx;
             cursor->side = TNODE_BOUND;
-            cursor->state = TT_CSR_TIED;
+            cursor->state = CURSOR_OPENED;
             return 0;
         }
 
       no_prev:
-        cursor->state = TT_CSR_PENDING;
+        cursor->state = CURSOR_PENDING;
         if (!cursor->idx) {
             cursor->side = TNODE_LEFT;
             cursor->idx = first_tnode_idx(cursor->ttree);
@@ -1014,12 +1082,13 @@ int ttree_cursor_prev(TtreeCursor *cursor)
     }
 
     cursor->side = TNODE_BOUND;
-    cursor->state = TT_CSR_TIED;
+    cursor->state = CURSOR_OPENED;
     cursor->idx--;
     return 0;
 }
 
-static void __print_tree(TtreeNode *tnode, int offs, void (*fn)(TtreeNode *tnode))
+static void __print_tree(TtreeNode *tnode, int offs,
+                         void (*fn)(TtreeNode *tnode))
 {
     int i;
 
