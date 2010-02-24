@@ -542,7 +542,7 @@ void ttree_destroy(Ttree *ttree)
 
     if (!ttree->root)
         return;
-    for (tnode = next = Ttreenode_leftmost(ttree->root); tnode; tnode = next) {
+    for (tnode = next = ttree_node_leftmost(ttree->root); tnode; tnode = next) {
         next = tnode->successor;
         free(tnode);
     }
@@ -976,7 +976,7 @@ int ttree_cursor_prev(TtreeCursor *cursor)
         }
     }
     if (UNLIKELY(cursor->idx == cursor->tnode->min_idx)) {
-        TtreeNode *n = Ttreenode_glb(cursor->tnode);
+        TtreeNode *n = ttree_node_glb(cursor->tnode);
 
         if (UNLIKELY(n == NULL)) {
             if (LIKELY(cursor->tnode->parent != NULL)) {

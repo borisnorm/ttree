@@ -172,16 +172,16 @@ typedef struct ttree_cursor {
 
 #define tnode_key_max(tnode) tnode_key(tnode, (tnode)->max_idx)
 
-#define Ttreenode_glb(tnode)                    \
+#define ttree_node_glb(tnode)                    \
     __tnode_get_bound(tnode, TNODE_LEFT)
 
-#define Ttreenode_lub(tnode)                    \
+#define ttree_node_lub(tnode)                    \
     __tnode_get_bound(tnode, TNODE_RIGHT)
 
-#define Ttreenode_leftmost(tnode)               \
+#define ttree_node_leftmost(tnode)               \
     __tnode_sidemost(tnode, TNODE_LEFT)
 
-#define Ttreenode_rightmost(tnode)              \
+#define ttree_node_rightmost(tnode)              \
     __tnode_sidemost(tnode, TNODE_RIGHT)
 
 #define tnode_for_each_index(tnode, iter)                               \
