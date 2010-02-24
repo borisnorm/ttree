@@ -101,84 +101,6 @@ struct tnode_lookup {
 
 static int __balance_factors[] = { -1, 1 };
 
-#ifdef CONFIG_DEBUG_TTREE
-#define TT_VERBOSE(fmt, args...)                \
-    do {                                        \
-        printf(KO_DEBUG "[T*-tree]: ");         \
-        printf(fmt, ##args);                    \
-    } while (0)
-
-int ttree_check_depth_dbg(TtreeNode *tnode)
-{
-    int l, r;
-
-    if (!tnode)
-        return 0;
-
-    l = ttree_check_depth_dbg(tnode->left);
-    r = ttree_check_depth_dbg(tnode->right);
-    if (tnode->left)
-        l++;
-    if (tnode->right)
-        r++;
-    if ((r - l) >= 1)
-        panic("T*-tree is right-heavy, but BFC is %d. tnode = %p", tnode->bfc, tnode);
-    else if ((r - l) <= -1)
-        panic("T*-tree is left-heavy, but BFC is %d. tnode = %p", tnode->bfc, tnode);
-
-    return ((r > l) ? r : l);
-}
-
-void ttree_display_cursor_dbg(TtreeCursor *cursor)
-{
-    printf("=== Cursor content ===\n");
-    printf("\t.ttree = %p\n", cursor->ttree);
-    printf("\t.tnode = %p", cursor->tnode);
-    if (cursor->tnode)
-        printf(" [%d, %d]", cursor->tnode->min_idx, cursor->tnode->max_idx);
-
-    printf("\n");
-    printf("\t.idx = %d\n", cursor->idx);
-    printf("\t.side = ");
-    switch (cursor->side) {
-        case TNODE_BOUND:
-            printf("TNODE_BOUND");
-            break;
-        case TNODE_LEFT:
-            printf("TNODE_LEFT");
-            break;
-        case TNODE_RIGHT:
-            printf("TNODE_BOUND");
-            break;
-        default:
-            printf("Unknown side type");
-            break;
-    }
-
-    printf("\n");
-    printf("\t.state = ");
-    switch (cursor->state) {
-        case TT_CSR_UNTIED:
-            printf("TT_CSR_UNTIED");
-            break;
-        case TT_CSR_TIED:
-            printf("TT_CSR_TIED");
-            break;
-        case TT_CSR_PENDING:
-            printf("TT_CSR_PENDING");
-            break;
-        default:
-            printf("Unknown cursor state");
-            break;
-    }
-
-    printf("\n=========\n");
-}
-#else
-#define TT_VERBOSE(fmt, args...)
-#endif /* CONFIG_DEBUG_TTREE */
-
-
 static TtreeNode *allocate_ttree_node(Ttree *ttree)
 {
     TtreeNode *tnode = malloc(tnode_size(ttree));
@@ -388,7 +310,6 @@ static void rebalance(Ttree *ttree, TtreeNode **node, TtreeCursor *cursor)
     int lh = left_heavy(*node);
     int sum = abs((*node)->bfc + (*node)->sides[opposite_side(lh)]->bfc);
 
-  
     if (sum >= 2) {
         rotate_single(node, opposite_side(lh));
         goto out;
@@ -398,9 +319,10 @@ static void rebalance(Ttree *ttree, TtreeNode **node, TtreeCursor *cursor)
 
     /*
      * T-tree rotation rules difference from AVL rules in only one aspect.
-     * After double rotation is done and a leaf became new root node of subtree
-     * and both its left and right childs are half-leafs. If the new root node
-     * contains only one item, N - 1 items should be moved to it from one of its childs.
+     * After double rotation is done and a leaf became a new root node of
+     * subtree and both its left and right childs are half-leafs.
+     * If the new root node contains only one item, N - 1 items should
+     * be moved into it from one of its childs.
      * (N is a number of items in selected child node).
      */
     if ((tnode_num_keys(*node) == 1) &&
@@ -410,7 +332,7 @@ static void rebalance(Ttree *ttree, TtreeNode **node, TtreeCursor *cursor)
 
         /*
          * If right child contains more items than left, they will be moved
-         * from the right child. Otherwise from the left one. 
+         * from the right child. Otherwise from the left one.
          */
         if (tnode_num_keys((*node)->right) >= tnode_num_keys((*node)->left)) {
             /*
@@ -424,18 +346,13 @@ static void rebalance(Ttree *ttree, TtreeNode **node, TtreeCursor *cursor)
             (*node)->min_idx = 0;
             (*node)->max_idx = nkeys - 1;
             if (cursor->tnode == n) {
-                TT_VERBOSE("(R) Tree cursor was affected due rebalancing and values of its members will be changed.\n"
-                           " Current values: { .tnode = %p, .idx = %d, .side = %d }\n",
-                           cursor->tnode, cursor->idx, cursor->side);
                 if (cursor->idx < n->max_idx) {
                     cursor->tnode = *node;
-                    cursor->idx = (*node)->min_idx + (cursor->idx - n->min_idx + 1);
+                    cursor->idx = (*node)->min_idx +
+                        (cursor->idx - n->min_idx + 1);
                 }
                 else
                     cursor->idx = first_tnode_idx(ttree);
-
-                TT_VERBOSE("(R) New values of cursor: { .tnode = %p, .idx = %d, .side = %d }\n",
-                           cursor->tnode, cursor->idx, cursor->side);
             }
         }
         else {
@@ -445,24 +362,19 @@ static void rebalance(Ttree *ttree, TtreeNode **node, TtreeCursor *cursor)
              */
             n = (*node)->left;
             nkeys = tnode_num_keys(n);
-            (*node)->keys[ttree->keys_per_tnode - 1] = (*node)->keys[(*node)->min_idx];
+            (*node)->keys[ttree->keys_per_tnode - 1] =
+                (*node)->keys[(*node)->min_idx];
             (*node)->min_idx = offs = ttree->keys_per_tnode - nkeys;
             (*node)->max_idx = ttree->keys_per_tnode - 1;
             if (cursor->tnode == n) {
-                TT_VERBOSE("(L) Tree cursor was affected due rebalancing and values of its members will be changed.\n"
-                           " Current values: { .tnode = %p, .idx = %d, .side = %d }\n",
-                           cursor->tnode, cursor->idx, cursor->side);
                 if (cursor->idx > n->min_idx) {
                     cursor->tnode = *node;
                     cursor->idx = (*node)->min_idx + (cursor->idx - n->min_idx);
                 }
                 else
                     cursor->idx = first_tnode_idx(ttree);
-
-                TT_VERBOSE("(L) New values of cursor: { .tnode = %p, .idx = %d, .side = %d }\n",
-                           cursor->tnode, cursor->idx, cursor->side);
             }
-      
+
             n->max_idx = n->min_idx++;
         }
 
@@ -1135,6 +1047,31 @@ static void __print_tree(TtreeNode *tnode, int offs, void (*fn)(TtreeNode *tnode
 
     __print_tree(tnode->left, offs + 1, fn);
     __print_tree(tnode->right, offs + 1, fn);
+}
+
+static int __ttree_get_depth(TtreeNode *tnode)
+{
+   int l, r;
+
+   if (!tnode) {
+        return 0;
+   }
+
+   l = __ttree_get_depth(tnode->left);
+   r = __ttree_get_depth(tnode->right);
+   if (tnode->left) {
+       l++;
+   }
+   if (tnode->right) {
+       r++;
+   }
+
+   return ((r > l) ? r : l);
+}
+
+int ttree_get_depth(Ttree *ttree)
+{
+    return __ttree_get_depth(ttree->root);
 }
 
 void ttree_print(Ttree *ttree, void (*fn)(TtreeNode *tnode))

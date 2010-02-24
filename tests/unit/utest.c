@@ -37,7 +37,7 @@
 static char *appname = NULL;
 static struct test_case *test_cases = NULL;
 
-static void utest_error(const char *fmt, ...)
+void utest_error(const char *fmt, ...)
 {
     va_list ap;
     int err = errno;
@@ -56,7 +56,7 @@ static void utest_error(const char *fmt, ...)
     exit(EXIT_FAILURE);
 }
 
-static void utest_warning(const char *fmt, ...)
+void utest_warning(const char *fmt, ...)
 {
     va_list ap;
 
@@ -73,15 +73,13 @@ static void utest_show_usage(void)
     exit(EXIT_SUCCESS);
 }
 
-static char *describe_arg(struct test_arg *arg)
+static char *describe_arg_type(enum ut_arg_type type)
 {
-    switch (arg->arg_type) {
+    switch (type) {
         case UT_ARG_STRING:
             return "STRING";
         case UT_ARG_INT:
             return "INTEGER";
-        case UT_ARG_FLOAT:
-            return "FLOAT";
         case UT_ARG_DOUBLE:
             return "DOUBLE";
         case UT_ARG_LONG:
@@ -89,6 +87,15 @@ static char *describe_arg(struct test_arg *arg)
     }
 
     return "UNKNONW";
+}
+
+static void validate_test_arg(struct test_arg *arg, enum ut_arg_type given)
+{
+    if (arg->arg_type != given) {
+        utest_error("Unexpected type of argument %s (%s). Expected %s\n",
+                    arg->arg_name, describe_arg_type(given),
+                    describe_arg_type(arg->arg_type));
+    }
 }
 
 static void show_test_usage(struct test_case *tc)
@@ -99,7 +106,7 @@ static void show_test_usage(struct test_case *tc)
     fprintf(stderr, "USAGE: %s <%s>\n", appname, tc->test_name);
     fprintf(stderr, "  Arguments:\n");
     for_each_test_arg(tc->test_args, arg) {
-        char *arg_type = describe_arg(arg);
+        char *arg_type = describe_arg_type(arg->arg_type);
 
         fprintf(stderr, "   %s - [<%s>] %s\n", arg->arg_name,
                 arg_type, arg->arg_descr);
@@ -183,7 +190,7 @@ void __describe_failure(const char *fn, int line, const char *fmt, ...)
     va_list ap;
 
     va_start(ap, fmt);
-    printf("---------------");
+    printf("---------------\n");
     printf("Failure reason: [%s:%d] ", fn, line);
     vprintf(fmt, ap);
     printf("\n--------------\n");
@@ -224,3 +231,26 @@ void utest_main(struct test_case *utests, int argc, char *argv[])
     run_test_case(tc);
 }
 
+char *__utest_get_STRING(struct test_arg *arg)
+{
+    validate_test_arg(arg, UT_ARG_STRING);
+    return arg->__val;
+}
+
+int __utest_get_INT(struct test_arg *arg)
+{
+    validate_test_arg(arg, UT_ARG_INT);
+    return atoi(arg->__val);
+}
+
+long __utest_get_LONG(struct test_arg *arg)
+{
+    validate_test_arg(arg, UT_ARG_LONG);
+    return atol(arg->__val);
+}
+
+double __utest_get_DOUBLE(struct test_arg *arg)
+{
+    validate_test_arg(arg, UT_ARG_DOUBLE);
+    return atof(arg->__val);
+}

@@ -40,7 +40,6 @@ enum ut_arg_type {
     UT_ARG_STRING = 1,
     UT_ARG_INT,
     UT_ARG_LONG,
-    UT_ARG_FLOAT,
     UT_ARG_DOUBLE,
 };
 
@@ -48,7 +47,7 @@ struct test_arg {
     char *arg_name;
     enum ut_arg_type arg_type;
     char *arg_descr;
-    void *__val;
+    char *__val;
 };
 
 typedef bool (*utest_fn)(struct test_arg *);
@@ -96,12 +95,21 @@ struct test_case {
 
 #define UTEST_FAILED(descr, args...)                                \
     do {                                                            \
-        __describe_failure(__FUNCTION__, __LINE__, descr. ##args);  \
+        __describe_failure(__FUNCTION__, __LINE__, descr, ##args);  \
         printf("::: [FAILED]\n");                                   \
         return true;                                                \
     } while (0)
 
+#define utest_get_arg(args, idx, type)          \
+    __utest_get_##type(&(args)[idx])
+
 void utest_main(struct test_case *utests, int argc, char *argv[]);
+void utest_error(const char *fmt, ...);
+void utest_warning(const char *fmt, ...);
 void __describe_failure(const char *fn, int line, const char *fmt, ...);
+int __utest_get_INT(struct test_arg *arg);
+char *__utest_get_STRING(struct test_arg *arg);
+long __utest_get_LONG(struct test_arg *arg);
+double __utest_get_DOUBLE(struct test_arg *arg);
 
 #endif /* !_UTEST_H_ */

@@ -111,6 +111,7 @@ typedef struct ttree_node {
 } TtreeNode;
 
 typedef int (*ttree_cmp_func_fn)(void *key1, void *key2);
+typedef void (*ttree_callback_fn)(TtreeNode *tnode, void *arg);
 
 /**
  * @brief T*-tree structure
@@ -358,21 +359,6 @@ static inline void *ttree_item_from_cursor(TtreeCursor *cursor)
  * @warning Recursive function.
  */
 void ttree_print(Ttree *ttree, void (*fn)(TtreeNode *tnode));
-
-#ifdef CONFIG_DEBUG_TTREE
-/**
- * @brief This debugging function allows to check T*-tree for balance.
- *
- * Function panics if a tree is totally unbalanced or one of its subtree
- * has invalid balance or balance factor.
- * @warning Recursive function.
- *
- * @param tnode - A pointer to subtree to check.
- * @see Ttree
- * @see TtreeNode
- */
-int ttree_check_depth_dbg(TtreeNode *tnode);
-#endif /* CONFIG_DEBUG_TTREE */
 
 /*
  * Internal T*-tree functions.
