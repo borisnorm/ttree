@@ -45,16 +45,18 @@
 #include <sys/types.h>
 #include "ttree_defs.h"
 
+#define TCSR_END -1
+#define TCSR_OK   0
+
 enum {
     TNODE_UNDEF = -1, /**< T*-tree node side is undefined */
     TNODE_LEFT,       /**< Left side */
     TNODE_RIGHT,      /**< Right side */
 };
 
-enum {
-    TTREE_CSR_ROOT,
-    TTREE_CSR_START,
-    TTREE_CSR_END,
+enum tnode_seek {
+    TNODE_SEEK_START,
+    TNODE_SEEK_END,
 };
 
 enum ttree_cursor_state {
@@ -193,13 +195,13 @@ typedef struct ttree_cursor {
 #define tnode_for_each_index(tnode, iter)                               \
     for ((iter) = (tnode)->min_idx; (iter) <= (tnode)->max_idx; (iter)++)
 
-static inline void tnode_set_side(TtreeNode *tnode, int side)
+static __inline void tnode_set_side(TtreeNode *tnode, int side)
 {
     tnode->node_side &= ~0x3;
     tnode->node_side |= (side + 1);
 }
 
-static inline int tnode_get_side(TtreeNode *tnode)
+static __inline int tnode_get_side(TtreeNode *tnode)
 {
     return ((tnode->node_side & 0x03) - 1);
 }
@@ -333,27 +335,31 @@ void *ttree_delete_at_cursor(TtreeCursor *cursor);
  */
 int ttree_replace(Ttree *ttree, void *key, void *new_item);
 
-void ttree_cursor_open(TtreeCursor *cursor, Ttree *tree, int place);
+int ttree_cursor_open_on_node(TtreeCursor *cusrsor, Ttree *tree,
+                              TtreeNode *tnode, enum tnode_seek seek);
+int ttree_cursor_open(TtreeCursor *cursor, Ttree *ttree);
 int ttree_cursor_next(TtreeCursor *cursor);
 int ttree_cursor_prev(TtreeCursor *cursor);
 
 #define ttree_cursor_copy(csr_dst, csr_src)         \
     memcpy(csr_dst, csr_src, sizeof(*(csr_src)))
 
-static inline void *ttree_key_from_cursor(TtreeCursor *cursor)
+static __inline void *ttree_key_from_cursor(TtreeCursor *cursor)
 {
-    __validate_cursor_dbg(cursor);
-    if (likely(cursor->side == TNODE_BOUND))
+    if (LIKELY(cursor->state == CURSOR_OPENED)) {
         return tnode_key(cursor->tnode, cursor->idx);
+    }
 
     return NULL;
 }
 
-static inline void *ttree_item_from_cursor(TtreeCursor *cursor)
+static __inline void *ttree_item_from_cursor(TtreeCursor *cursor)
 {
     void *key = ttree_key_from_cursor(cursor);
-    if (!key)
+
+    if (!key) {
         return NULL;
+    }
 
     return ttree_key2item(cursor->ttree, key);
 }
@@ -370,7 +376,7 @@ void ttree_print(Ttree *ttree, void (*fn)(TtreeNode *tnode));
  * Internal T*-tree functions.
  * Not invented for public usage.
  */
-static inline TtreeNode *__tnode_sidemost(TtreeNode *tnode, int side)
+static __inline TtreeNode *__tnode_sidemost(TtreeNode *tnode, int side)
 {
     if (!tnode) {
         return NULL;
@@ -383,7 +389,7 @@ static inline TtreeNode *__tnode_sidemost(TtreeNode *tnode, int side)
     }
 }
 
-static inline TtreeNode *__tnode_get_bound(TtreeNode *tnode, int side)
+static __inline TtreeNode *__tnode_get_bound(TtreeNode *tnode, int side)
 {
     if (!tnode)
         return NULL;

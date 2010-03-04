@@ -664,8 +664,7 @@ void *ttree_lookup(Ttree *ttree, void *key, TtreeCursor *cursor)
 
 out:
     if (cursor) {
-        ttree_cursor_open(cursor, ttree, TTREE_CSR_ROOT);
-        cursor->tnode = target;
+        ttree_cursor_open_on_node(cursor, ttree, target, TNODE_SEEK_START);
         cursor->side = side;
         cursor->idx = idx;
         cursor->state = st;
@@ -941,101 +940,168 @@ int ttree_replace(Ttree *ttree, void *key, void *new_item)
     return 0;
 }
 
-void ttree_cursor_open(TtreeCursor *cursor, Ttree *ttree, int place)
+int ttree_cursor_open_on_node(TtreeCursor *cursor, Ttree *tree,
+                              TtreeNode *tnode, enum tnode_seek seek)
 {
+    TTREE_ASSERT(cursor != NULL);
+    TTREE_ASSERT(tree != NULL);
+
     memset(cursor, 0, sizeof(*cursor));
-    cursor->ttree = ttree;
-    switch (place) {
-        case TTREE_CSR_START:
-            cursor->tnode = ttree_node_leftmost(ttree->root);
-            break;
-        case TTREE_CSR_END:
-            cursor->tnode = ttree_node_rightmost(ttree->root);
-            break;
-        default: /* TTREE_CSR_ROOT */
-            cursor->tnode = ttree->root;
-            break;
-    }
-    if (cursor->tnode) {
-        if (place == TTREE_CSR_END) {
-            cursor->idx = cursor->tnode->max_idx;
-        }
-        else {
-            cursor->idx = cursor->tnode->min_idx;
+    cursor->ttree = tree;
+    cursor->tnode = tnode;
+
+    /*
+     * If T*-tree node was specified, the cursor becomes
+     * ready for iteration. Otherwise we suppose that T*-tree
+     * is completely empty, so it becomes ready for insertion.
+     * In second case seek argument is ignored.
+     */
+    if (tnode) {
+        switch (seek) {
+            case TNODE_SEEK_START:
+                cursor->idx = tnode->min_idx;
+                break;
+            case TNODE_SEEK_END:
+                cursor->idx = tnode->max_idx;
+                break;
+            default:
+                SET_ERRNO(EINVAL);
+                return -1;
         }
 
         cursor->state = CURSOR_OPENED;
-        cursor->side = TNODE_BOUND;
     }
     else {
+        TTREE_ASSERT(cursor->ttree->root == NULL);
         cursor->idx = first_tnode_idx(cursor->ttree);
-        cursor->state = CURSOR_CLOSED;
+        cursor->state = CURSOR_PENDING;
     }
+
+    cursor->side = TNODE_BOUND;
+    return 0;
+}
+
+int ttree_cursor_open(TtreeCursor *cursor, Ttree *ttree)
+{
+    return ttree_cursor_open_on_node(cursor, ttree, ttree->root,
+                                     TNODE_SEEK_START);
+}
+
+int ttree_cursor_first(TtreeCursor *cursor)
+{
+    TtreeNode *tnode;
+    int ret = 0;
+
+    TTREE_ASSERT(cursor != NULL);
+    TTREE_ASSERT(cursor->ttree != NULL);
+    cursor->side = TNODE_BOUND;
+    cursor->state = CURSOR_OPENED;
+    tnode = ttree_node_leftmost(cursor->ttree->root);
+    if (UNLIKELY(tnode == NULL)) {
+        if (LIKELY(cursor->ttree->root != NULL)) {
+            cursor->idx = cursor->ttree->root->min_idx;
+            cursor->tnode = cursor->ttree->root;
+        }
+        else {
+            cursor->idx = first_tnode_idx(cursor->ttree);
+            cursor->state = CURSOR_PENDING;
+            cursor->tnode = NULL;
+            ret = -1;
+        }
+    }
+    else {
+        cursor->tnode = tnode;
+        cursor->idx = tnode->min_idx;
+    }
+
+    return ret;
+}
+
+int ttree_cursor_last(TtreeCursor *cursor)
+{
+    TtreeNode *tnode;
+    int ret = 0;
+
+    TTREE_ASSERT(cursor != NULL);
+    TTREE_ASSERT(cursor->ttree != NULL);
+
+    cursor->state = CURSOR_OPENED;
+    cursor->side = TNODE_BOUND;
+    tnode = ttree_node_rightmost(cursor->ttree->root);
+    if (UNLIKELY(tnode == NULL)) {
+        if (LIKELY(cursor->ttree->root != NULL)) {
+            cursor->tnode = cursor->ttree->root;
+            cursor->idx = cursor->tnode->max_idx;
+        }
+        else {
+            cursor->idx = first_tnode_idx(cursor->ttree);
+            cursor->state = CURSOR_PENDING;
+            cursor->tnode = NULL;
+            ret = -1;
+        }
+    }
+    else {
+        cursor->tnode = tnode;
+        cursor->idx = tnode->max_idx;
+    }
+
+    return ret;
 }
 
 int ttree_cursor_next(TtreeCursor *cursor)
 {
-    if (UNLIKELY(cursor->state == CURSOR_CLOSED)) {
-        return -1;
-    }
+    TTREE_ASSERT(cursor != NULL);
+    TTREE_ASSERT(cursor->ttree != NULL);
+    TTREE_ASSERT(cursor->tnode != NULL);
 
     if (UNLIKELY(cursor->state == CURSOR_PENDING)) {
-        int ret = 0;
+        int ret = TCSR_OK;
 
+        cursor->state = CURSOR_OPENED;
         if ((cursor->side == TNODE_LEFT) ||
             (cursor->idx < cursor->tnode->min_idx)) {
             cursor->side = TNODE_BOUND;
             cursor->idx = cursor->tnode->min_idx;
-            cursor->state = CURSOR_OPENED;
         }
-        else if (cursor->idx == cursor->tnode->max_idx)
-            cursor->state = CURSOR_OPENED;
-        else
-            ret = -1;
+        else if (cursor->idx != cursor->tnode->max_idx) {
+            ret = TCSR_END;
+        }
 
         return ret;
     }
-    if (UNLIKELY(cursor->idx == cursor->tnode->max_idx)) {
+
+    /*
+     * In case when maximum key of the T*-tree node is reached,
+     * the next item will be the very first(minumum) kery of
+     * its successor node. Because of nature of T*-tree we always
+     * has direct access to successor of each tree node.
+     */
+    cursor->side = TNODE_BOUND;
+    if (cursor->idx == cursor->tnode->max_idx) {
         if (cursor->tnode->successor) {
             cursor->tnode = cursor->tnode->successor;
             cursor->idx = cursor->tnode->min_idx;
-            cursor->side = TNODE_BOUND;
-            cursor->state = CURSOR_OPENED;
-            return 0;
+            return TCSR_OK;
         }
 
-        if (LIKELY(tnode_is_full(cursor->ttree, cursor->tnode))) {
-            cursor->side = TNODE_RIGHT;
-            cursor->idx = first_tnode_idx(cursor->ttree);
-        }
-        else {
-            cursor->side = TNODE_BOUND;
-            cursor->idx++;
-        }
-
-        cursor->state = CURSOR_PENDING;
-        return -1;
+        return TCSR_END;
     }
 
     cursor->idx++;
-    cursor->side = TNODE_BOUND;
-    cursor->state = CURSOR_OPENED;
-    return 0;
+    return TCSR_OK;
 }
 
 int ttree_cursor_prev(TtreeCursor *cursor)
 {
-    if (UNLIKELY(cursor->state == CURSOR_CLOSED)) {
-        return -1;
-    }
-
+    TTREE_ASSERT(cursor != NULL);
+    TTREE_ASSERT(cursor->ttree != NULL);
     if (UNLIKELY(cursor->state == CURSOR_PENDING)) {
+        cursor->state = CURSOR_OPENED;
         if ((cursor->side == TNODE_RIGHT) ||
             (cursor->idx > cursor->tnode->max_idx)) {
             cursor->side = TNODE_BOUND;
             cursor->idx = cursor->tnode->max_idx;
-            cursor->state = CURSOR_OPENED;
-            return 0;
+            return TCSR_OK;
         }
         else if ((cursor->side == TNODE_LEFT) ||
                  (cursor->idx < cursor->tnode->min_idx)) {
@@ -1043,48 +1109,41 @@ int ttree_cursor_prev(TtreeCursor *cursor)
             cursor->idx = cursor->tnode->min_idx;
         }
     }
-    if (UNLIKELY(cursor->idx == cursor->tnode->min_idx)) {
-        TtreeNode *n = ttree_node_glb(cursor->tnode);
-
-        if (UNLIKELY(n == NULL)) {
-            if (LIKELY(cursor->tnode->parent != NULL)) {
-                for (n = cursor->tnode->parent; n->parent &&
-                         (tnode_get_side(n) == TNODE_LEFT); n = n->parent);
-                if (n->parent && tnode_get_side(n) != TNODE_RIGHT) {
-                    n = n->parent;
-                }
-            }
-            else {
-                goto no_prev;
-            }
-        }
-
-        if (LIKELY(n != NULL)) {
-            cursor->tnode = n;
-            cursor->idx = cursor->tnode->max_idx;
-            cursor->side = TNODE_BOUND;
-            cursor->state = CURSOR_OPENED;
-            return 0;
-        }
-
-      no_prev:
-        cursor->state = CURSOR_PENDING;
-        if (!cursor->idx) {
-            cursor->side = TNODE_LEFT;
-            cursor->idx = first_tnode_idx(cursor->ttree);
-        }
-        else {
-            cursor->side = TNODE_BOUND;
-            cursor->idx--;
-        }
-
-        return -1;
-    }
 
     cursor->side = TNODE_BOUND;
+    if (cursor->idx == cursor->tnode->min_idx) {
+        /*
+         * When cursor reaches the minimum index in a T*-tree
+         * node, a previous item would be the very last(maximum)
+         * key in the greatest lower bound of given node.
+         */
+        TtreeNode *n = ttree_node_glb(cursor->tnode);
+
+        if (n == NULL) {
+            /*
+             * If given node has not greatest lower bound(I.e. it hasn't
+             * left child), we have to determine an accestor of given node
+             * such that is a right child of its parent. The parent of accestor
+             * we found will be the previous node of given one.
+             */
+            for (n = cursor->tnode; n->parent &&
+                     n->parent->left == n; n = n->parent);
+            if (!n->parent) {
+                return TCSR_END;
+            }
+
+
+            n = n->parent;
+        }
+
+        cursor->tnode = n;
+        cursor->idx = cursor->tnode->max_idx;
+        return TCSR_OK;
+    }
+
     cursor->state = CURSOR_OPENED;
     cursor->idx--;
-    return 0;
+    return TCSR_OK;
 }
 
 static void __print_tree(TtreeNode *tnode, int offs,
