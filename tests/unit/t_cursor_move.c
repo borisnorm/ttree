@@ -26,7 +26,60 @@ static struct item *alloc_item(int val)
     return item;
 }
 
-UTEST_FUNCTION(ut_cursor_next, args)
+UTEST_FUNCTION(ut_cursor_insert, args)
+{
+    Ttree tree;
+    TtreeCursor cursor;
+    int num_keys, ret, num_items, i;
+    struct item *item;
+    void *result;
+
+    num_keys = utest_get_arg(args, 0, INT);
+    num_items = utest_get_arg(args, 1, INT);
+    UTEST_ASSERT(num_items > 1);
+    ret = ttree_init(&tree, num_keys, __cmpfunc, struct item, key);
+    UTEST_ASSERT(ret >= 0);
+
+    /* Fill the very first node with items, then check the cursor state */
+    for (i = num_items; i > 0; i--) {
+        item = alloc_item(i);
+        result = ttree_lookup(&tree, &item->key, &cursor);
+        if (result) {
+            UTEST_FAILED("ttree_lookup found item by unexistent key: %d",
+                         item->key);
+        }
+
+        ttree_insert_at_cursor(&cursor, item);
+    }
+
+    /*
+     * Now cursor should point to the very first item in a node.
+     * I.e. to the position of the last inserted key. In order
+     * to check if cursor still iteratible we'll try to iterate
+     * backward expecting to get TCSR_END, then we'll try to iterate
+     * forward expecting to iterate through exactly <num_keys> items.
+     */
+    UTEST_ASSERT(ttree_cursor_prev(&cursor) == TCSR_END);
+    i = 1;
+    do {
+        item = ttree_item_from_cursor(&cursor);
+        if (!item) {
+            UTEST_FAILED("Failed to get item from cursor in step %d!",
+                         i - 1);
+        }
+        if (item->key != i) {
+            UTEST_FAILED("[step %d] Expected key %d, but got %d!",
+                         i - 1, i, item->key);
+        }
+
+        ret = ttree_cursor_next(&cursor);
+        i++;
+    } while (ret == TCSR_OK);
+
+    UTEST_PASSED();
+}
+
+UTEST_FUNCTION(ut_cursor_move, args)
 {
     Ttree tree;
     TtreeCursor cursor;
@@ -94,12 +147,22 @@ UTEST_FUNCTION(ut_cursor_next, args)
 
 DEFINE_UTESTS_LIST(tests) = {
     {
-        "UTEST_CURSOR_NEXT",
-        "Cursor move forward test",
-        ut_cursor_next,
+        "UTEST_CURSOR_MOVE",
+        "Cursor move forward and backward test",
+        ut_cursor_move,
         UTEST_ARGS_LIST {
             { "keys", UT_ARG_INT, "Number of keys per T*-tree node" },
             { "total items", UT_ARG_INT, "Number of items in a tree" },
+            UTEST_ARGS_LIST_END,
+        },
+    },
+    {
+        "UTEST_CURSOR_INSERT",
+        "Insertion at cursor test",
+        ut_cursor_insert,
+        UTEST_ARGS_LIST {
+            { "keys", UT_ARG_INT, "Number of keys per T*-tree node" },
+            { "items", UT_ARG_INT, "Items" },
             UTEST_ARGS_LIST_END,
         },
     },

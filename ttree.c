@@ -584,7 +584,7 @@ void *ttree_lookup(Ttree *ttree, void *key, TtreeCursor *cursor)
     TtreeNode *n, *marked_tn, *target;
     int side = TNODE_BOUND, cmp_res, idx;
     void *item = NULL;
-    enum ttree_cursor_state st = CURSOR_CLOSED;
+    enum ttree_cursor_state st = CURSOR_PENDING;
 
     /*
      * Classical T-tree search algorithm is O(log(2N/M) + log(M - 2))
@@ -694,7 +694,7 @@ void ttree_insert_at_cursor(TtreeCursor *cursor, void *item)
     void *key;
 
     TTREE_ASSERT(cursor->ttree != NULL);
-    //TTREE_ASSERT(cursor->state == CURSOR_PENDING);
+    TTREE_ASSERT(cursor->state == CURSOR_PENDING);
     key = ttree_item2key(ttree, item);
     n = at_node = cursor->tnode;
     if (!ttree->root) { /* The root node has to be created. */
@@ -703,10 +703,7 @@ void ttree_insert_at_cursor(TtreeCursor *cursor, void *item)
         at_node->min_idx = at_node->max_idx = first_tnode_idx(ttree);
         ttree->root = at_node;
         tnode_set_side(at_node, TNODE_ROOT);
-        cursor->tnode = at_node;
-        cursor->idx = at_node->min_idx;
-        cursor->side = TNODE_BOUND;
-        cursor->state = CURSOR_OPENED;
+        ttree_cursor_open_on_node(cursor, ttree, at_node, TNODE_SEEK_START);
         return;
     }
     if (cursor->side == TNODE_BOUND) {
