@@ -797,6 +797,7 @@ void *ttree_delete_at_cursor(TtreeCursor *cursor)
     ret = ttree_key2item(ttree, tnode->keys[cursor->idx]);
     decrease_tnode_window(ttree, tnode, &cursor->idx);
     if (UNLIKELY(cursor->idx > tnode->max_idx)) {
+        cursor->idx = tnode->max_idx;
         if (cursor->idx <= ttree->keys_per_tnode - 1) {
             cursor->state = CURSOR_PENDING;
         }
@@ -816,7 +817,7 @@ void *ttree_delete_at_cursor(TtreeCursor *cursor)
         int idx;
 
         /*
-         * If it is an internal node, recovery number of items in it
+         * If it is an internal node, we have to recover number of items in it
          * by moving one item from its successor.
          */
         n = tnode->successor;
@@ -1052,19 +1053,20 @@ int ttree_cursor_next(TtreeCursor *cursor)
     TTREE_ASSERT(cursor->tnode != NULL);
 
     if (UNLIKELY(cursor->state == CURSOR_PENDING)) {
-        int ret = TCSR_OK;
-
         cursor->state = CURSOR_OPENED;
         if ((cursor->side == TNODE_LEFT) ||
             (cursor->idx < cursor->tnode->min_idx)) {
             cursor->side = TNODE_BOUND;
             cursor->idx = cursor->tnode->min_idx;
+            return TCSR_OK;
         }
-        else if (cursor->idx != cursor->tnode->max_idx) {
-            ret = TCSR_END;
+        else if (cursor->side == TNODE_BOUND) {
+            return TCSR_OK;
         }
-
-        return ret;
+        else if ((cursor->side == TNODE_RIGHT) ||
+                 (cursor->idx > cursor->tnode->max_idx)) {
+            cursor->idx = cursor->tnode->max_idx;
+        }
     }
 
     /*

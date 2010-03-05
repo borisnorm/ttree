@@ -26,6 +26,51 @@ static struct item *alloc_item(int val)
     return item;
 }
 
+UTEST_FUNCTION(ut_cursor_move_pending, args)
+{
+    Ttree tree;
+    struct item *item;
+    int ret, i;
+    TtreeCursor cursor;
+    void *result;
+
+    ret = ttree_init(&tree, TTREE_DEFAULT_NUMKEYS, __cmpfunc, struct item, key);
+    UTEST_ASSERT(ret >= 0);
+
+    for (i = 0; i < TTREE_DEFAULT_NUMKEYS - 1; i++) {
+        item = alloc_item(i + 1);
+        UTEST_ASSERT(ttree_insert(&tree, item) == 0);
+    }
+
+    i = TTREE_DEFAULT_NUMKEYS;
+    UTEST_ASSERT(ttree_lookup(&tree, &i, &cursor) == NULL);
+    UTEST_ASSERT(cursor.state == CURSOR_PENDING);
+    UTEST_ASSERT(ttree_cursor_prev(&cursor) == TCSR_OK);
+    item = ttree_item_from_cursor(&cursor);
+    UTEST_ASSERT(item != NULL);
+    UTEST_ASSERT(item->key == TTREE_DEFAULT_NUMKEYS - 1);
+
+    i = 0;
+    UTEST_ASSERT(ttree_lookup(&tree, &i, &cursor) == NULL);
+    UTEST_ASSERT(cursor.state == CURSOR_PENDING);
+    UTEST_ASSERT(ttree_cursor_next(&cursor) == TCSR_OK);
+    item = ttree_item_from_cursor(&cursor);
+    UTEST_ASSERT(item != NULL);
+    UTEST_ASSERT(item->key == 1);
+
+    item = alloc_item(TTREE_DEFAULT_NUMKEYS);
+    UTEST_ASSERT(ttree_insert(&tree, item) == 0);
+    i = TTREE_DEFAULT_NUMKEYS + 1;
+    UTEST_ASSERT(ttree_lookup(&tree, &i, &cursor) == NULL);
+    UTEST_ASSERT(cursor.state == CURSOR_PENDING);
+    UTEST_ASSERT(ttree_cursor_prev(&cursor) == TCSR_OK);
+    item = ttree_item_from_cursor(&cursor);
+    UTEST_ASSERT(item != NULL);
+    UTEST_ASSERT(item->key == TTREE_DEFAULT_NUMKEYS);
+
+    UTEST_PASSED();
+}
+
 UTEST_FUNCTION(ut_cursor_insert, args)
 {
     Ttree tree;
@@ -165,6 +210,12 @@ DEFINE_UTESTS_LIST(tests) = {
             { "items", UT_ARG_INT, "Items" },
             UTEST_ARGS_LIST_END,
         },
+    },
+    {
+        "UTEST_CURSOR_MOVE_PENDING",
+        "Moving backward and forward on pending cursor",
+        ut_cursor_move_pending,
+        UTEST_ARGS_LIST { UTEST_ARGS_LIST_END, },
     },
 
     UTESTS_LIST_END,
