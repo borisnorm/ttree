@@ -116,7 +116,8 @@ static TtreeNode *allocate_ttree_node(Ttree *ttree)
  * T*-tree node contains keys in a sorted order. Thus binary search
  * is used for internal lookup.
  */
-static void *lookup_inside_tnode(Ttree *ttree, TtreeNode *tnode, struct tnode_lookup *tnl, int *out_idx)
+static void *lookup_inside_tnode(Ttree *ttree, TtreeNode *tnode,
+                                 struct tnode_lookup *tnl, int *out_idx)
 {
     int floor, ceil, mid, cmp_res;
 
@@ -143,7 +144,8 @@ static void *lookup_inside_tnode(Ttree *ttree, TtreeNode *tnode, struct tnode_lo
     return NULL;
 }
 
-static inline void increase_tnode_window(Ttree *ttree, TtreeNode *tnode, int *idx)
+static __inline void increase_tnode_window(Ttree *ttree,
+                                           TtreeNode *tnode, int *idx)
 {
     register int i;
 
@@ -153,16 +155,18 @@ static inline void increase_tnode_window(Ttree *ttree, TtreeNode *tnode, int *id
      */
     if ((ttree->keys_per_tnode - 1 - tnode->max_idx) > tnode->min_idx) {
         for (i = ++tnode->max_idx; i > *idx - 1; i--)
-            tnode->keys[i] = tnode->keys[i - 1];    
+            tnode->keys[i] = tnode->keys[i - 1];
     }
     else {
         *idx -= 1;
-        for (i = --tnode->min_idx; i < *idx; i++)
-            tnode->keys[i] = tnode->keys[i + 1];    
+        for (i = --tnode->min_idx; i < *idx; i++) {
+            tnode->keys[i] = tnode->keys[i + 1];
+        }
     }
 }
 
-static inline void decrease_tnode_window(Ttree *ttree, TtreeNode *tnode, int *idx)
+static __inline void decrease_tnode_window(Ttree *ttree,
+                                         TtreeNode *tnode, int *idx)
 {
     register int i;
 
@@ -197,10 +201,10 @@ static void __rotate_single(TtreeNode **target, int side)
     s = p->sides[side];
     TTREE_ASSERT(s != NULL);
     tnode_set_side(s, tnode_get_side(p));
-    p->sides[side] = s->sides[opside];  
+    p->sides[side] = s->sides[opside];
     s->sides[opside] = p;
     tnode_set_side(p, opside);
-    s->parent = p->parent;  
+    s->parent = p->parent;
     p->parent = s;
     if (p->sides[side]) {
         p->sides[side]->parent = p;
@@ -251,11 +255,13 @@ static void rotate_single(TtreeNode **target, int side)
      * X is overweighted to the opposite to its new parent side, otherwise it's balanced.
      * If X is either half-leaf or leaf, balance racalculation is obvious.
      */
-    if (is_internal_node(n))
+    if (is_internal_node(n)) {
         n->bfc = (n->parent->bfc != side2bfc(side)) ? side2bfc(side) : 0;
-    else
+    }
+    else {
         n->bfc = !!(n->right) - !!(n->left);
-  
+    }
+
     (*target)->bfc += side2bfc(opposite_side(side));
     TTREE_ASSERT((abs(n->bfc < 2) && (abs((*target)->bfc) < 2)));
 }
@@ -363,8 +369,9 @@ static void rebalance(Ttree *ttree, TtreeNode **node, TtreeCursor *cursor)
                     cursor->idx = (*node)->min_idx +
                         (cursor->idx - n->min_idx + 1);
                 }
-                else
+                else {
                     cursor->idx = first_tnode_idx(ttree);
+                }
             }
         }
         else {
@@ -384,8 +391,9 @@ static void rebalance(Ttree *ttree, TtreeNode **node, TtreeCursor *cursor)
                     cursor->tnode = *node;
                     cursor->idx = (*node)->min_idx + (cursor->idx - n->min_idx);
                 }
-                else
+                else {
                     cursor->idx = first_tnode_idx(ttree);
+                }
             }
 
             n->max_idx = n->min_idx++;
@@ -397,12 +405,13 @@ static void rebalance(Ttree *ttree, TtreeNode **node, TtreeCursor *cursor)
         n->min_idx = n->max_idx = first_tnode_idx(ttree);
     }
 
-  out:
-    if (ttree->root->parent)
+out:
+    if (ttree->root->parent) {
         ttree->root = *node;
+    }
 }
 
-static inline void __add_successor(TtreeNode *n)
+static __inline void __add_successor(TtreeNode *n)
 {
     /*
      * After new leaf node was added, its successor should be
@@ -443,7 +452,7 @@ static inline void __add_successor(TtreeNode *n)
     }
 }
 
-static inline void __remove_successor(TtreeNode *n)
+static __inline void __remove_successor(TtreeNode *n)
 {
     /*
      * Node removing could affect the successor of one of nodes
@@ -594,10 +603,12 @@ void *ttree_lookup(Ttree *ttree, void *key, TtreeCursor *cursor)
      * node(bound node) excluding its first and last items.
      *
      * Here is used another approach that was suggested in
-     * "Tobin J. Lehman , Michael J. Carey, A Study of Index Structures for Main Memory Database Management Systems".
-     * It reduces O(log(2N/M) + log(M - 2)) to true O(log(N)). This algorithm compares the search
-     * key only with minimum item in each node. If search key is greater, current node is marked
-     * for future consideration.
+     * "Tobin J. Lehman , Michael J. Carey, A Study of Index Structures for
+     * Main Memory Database Management Systems".
+     * It reduces O(log(2N/M) + log(M - 2)) to true O(log(N)).
+     * This algorithm compares the search
+     * key only with minimum item in each node. If search key is greater,
+     * current node is marked for future consideration.
      */
     target = n = ttree->root;
     marked_tn = NULL;
@@ -1121,9 +1132,10 @@ int ttree_cursor_prev(TtreeCursor *cursor)
         if (n == NULL) {
             /*
              * If given node has not greatest lower bound(I.e. it hasn't
-             * left child), we have to determine an accestor of given node
-             * such that is a right child of its parent. The parent of accestor
-             * we found will be the previous node of given one.
+             * even its left child), we have to determine an accestor
+             * of given node such that it's a right child of its parent.
+             * The parent of accestor we found will be the previous node
+             * of given one.
              */
             for (n = cursor->tnode; n->parent &&
                      n->parent->left == n; n = n->parent);

@@ -29,8 +29,9 @@ static struct item *alloc_item(int val)
 UTEST_FUNCTION(ut_cursor_move_pending, args)
 {
     Ttree tree;
+    TtreeNode *tnode;
     struct item *item;
-    int ret, i;
+    int ret, i, offset;
     TtreeCursor cursor;
     void *result;
 
@@ -68,6 +69,36 @@ UTEST_FUNCTION(ut_cursor_move_pending, args)
     UTEST_ASSERT(item != NULL);
     UTEST_ASSERT(item->key == TTREE_DEFAULT_NUMKEYS);
 
+    for (i = 1; i <= TTREE_DEFAULT_NUMKEYS; i++) {
+        item = ttree_delete(&tree, &i);
+        if (item == NULL) {
+            UTEST_FAILED("Failed to remove item with key %d!", i);
+        }
+
+        free(item);
+    }
+
+    for (i = 0, offset = 0; i < 4; i++, offset = TTREE_DEFAULT_NUMKEYS * 2) {
+        int j;
+
+        for (j = 0; j < TTREE_DEFAULT_NUMKEYS; j++) {
+            printf("New %d\n", i * TTREE_DEFAULT_NUMKEYS + j + offset);
+            item = alloc_item(i * TTREE_DEFAULT_NUMKEYS + j + offset);
+            UTEST_ASSERT(ttree_insert(&tree, item) == 0);
+        }
+
+    }
+
+    tnode = ttree_node_leftmost(tree.root);
+    UTEST_ASSERT(tnode != NULL);
+    item = ttree_key2item(&tree, tnode_key_min(tnode));
+    i = item->key - 1;
+    UTEST_ASSERT(ttree_lookup(&tree, &i, &cursor) == NULL);
+    UTEST_ASSERT(ttree_cursor_next(&cursor) == TCSR_OK);
+    UTEST_ASSERT(*(int *)ttree_key_from_cursor(&cursor) == item->key);
+
+    i = TTREE_DEFAULT_NUMKEYS * 4;
+    UTEST_ASSERT(ttree_lookup(&tree, &i, &cursor) == NULL);
     UTEST_PASSED();
 }
 
