@@ -38,6 +38,10 @@ UTEST_FUNCTION(ut_cursor_move_pending, args)
     ret = ttree_init(&tree, TTREE_DEFAULT_NUMKEYS, __cmpfunc, struct item, key);
     UTEST_ASSERT(ret >= 0);
 
+    /*
+     * Test ttree_cursor_prev in case when pending cursor
+     * points to the very last position in a node.
+     */
     for (i = 0; i < TTREE_DEFAULT_NUMKEYS - 1; i++) {
         item = alloc_item(i + 1);
         UTEST_ASSERT(ttree_insert(&tree, item) == 0);
@@ -51,6 +55,10 @@ UTEST_FUNCTION(ut_cursor_move_pending, args)
     UTEST_ASSERT(item != NULL);
     UTEST_ASSERT(item->key == TTREE_DEFAULT_NUMKEYS - 1);
 
+    /*
+     * Test ttree_cursor_next when pending cursor points
+     * to any key position inside the node.
+     */
     i = 0;
     UTEST_ASSERT(ttree_lookup(&tree, &i, &cursor) == NULL);
     UTEST_ASSERT(cursor.state == CURSOR_PENDING);
@@ -78,11 +86,10 @@ UTEST_FUNCTION(ut_cursor_move_pending, args)
         free(item);
     }
 
-    for (i = 0, offset = 0; i < 4; i++, offset = TTREE_DEFAULT_NUMKEYS * 2) {
+    for (i = 0, offset = 0; i < 7; i++, offset += TTREE_DEFAULT_NUMKEYS * 2) {
         int j;
 
         for (j = 0; j < TTREE_DEFAULT_NUMKEYS; j++) {
-            printf("New %d\n", i * TTREE_DEFAULT_NUMKEYS + j + offset);
             item = alloc_item(i * TTREE_DEFAULT_NUMKEYS + j + offset);
             UTEST_ASSERT(ttree_insert(&tree, item) == 0);
         }
@@ -97,8 +104,24 @@ UTEST_FUNCTION(ut_cursor_move_pending, args)
     UTEST_ASSERT(ttree_cursor_next(&cursor) == TCSR_OK);
     UTEST_ASSERT(*(int *)ttree_key_from_cursor(&cursor) == item->key);
 
+    /*
+     * Testing ttree_cursor_prev when pending cursor points to unexistent
+     * left child of a node.
+     */
     i = TTREE_DEFAULT_NUMKEYS * 4;
     UTEST_ASSERT(ttree_lookup(&tree, &i, &cursor) == NULL);
+    UTEST_ASSERT(ttree_cursor_prev(&cursor) == TCSR_OK);
+    UTEST_ASSERT(*(int *)ttree_key_from_cursor(&cursor) == i - 1);
+
+    /*
+     * Testing ttree_cursor_next when pending cursor points to
+     * unexsistent right child of a node.
+     */
+    i += TTREE_DEFAULT_NUMKEYS * 3;
+    UTEST_ASSERT(ttree_lookup(&tree, &i, &cursor) == NULL);
+    UTEST_ASSERT(ttree_cursor_next(&cursor) == TCSR_OK);
+    UTEST_ASSERT(*(int *)ttree_key_from_cursor(&cursor) ==
+                 i + TTREE_DEFAULT_NUMKEYS * 2);
     UTEST_PASSED();
 }
 
