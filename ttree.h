@@ -74,10 +74,12 @@ enum ttree_cursor_state {
  * T*-tree node has an array of items, link to its parent
  * node and two links to its childs: left and right one.
  * A node with N keys can be drawn as following:
+ * <pre>
  *          [^]        <- pointer to parent
  *     [k1, ... kN]    <- Array of items
  *         /  \
  *       (L)  (R)      <- Pointers to left and right childs.
+ * </pre>
  *
  * T*-tree node also has a pointer to its successor, i.e.
  * another node following it in sorted order. This feature allows
@@ -139,21 +141,11 @@ typedef struct ttree_cursor {
     enum ttree_cursor_state state;
 } TtreeCursor;
 
-#ifndef CONFIG_DEBUG_TTREE
-#define TT_ASSERT_DBG(cond)
-#define __validate_cursor_dbg(cursor)
-#else
-#define TT_ASSERT_DBG(cond) ASSERT(cond)
-#define __validate_cursor_dbg(cursor)                       \
-    do {                                                    \
-        TT_ASSERT_DBG((cursor)->ttree != NULL);             \
-        TT_ASSERT_DBG((cursor)->tnode != NULL);             \
-        TT_ASSERT_DBG(!tnode_is_empty((cursor)->tnode));    \
-        TT_ASSERT_DBG((cursor)->state != TT_CSR_UNTIED);    \
-    } while (0)
-#endif /* CONFIG_DEBUG_TTREE */
-
-
+/**
+ * @brief Get size of T*-tree node in bytes.
+ * @param ttree - a pointer to Ttree.
+ * @return size of TtreeNode in a tree in bytes,
+ */
 #define tnode_size(ttree)                                               \
     (sizeof(TtreeNode) + (ttree->keys_per_tnode - \
                           TNODE_ITEMS_MIN) * sizeof(uintptr_t))
@@ -242,6 +234,7 @@ int __ttree_init(Ttree *ttree, int num_keys,
 void ttree_destroy(Ttree *ttree);
 
 /**
+ * @fn void *ttree_lookup(Ttree *ttree, void *key, TtreeCursor *cursor)
  * @brief Find an item by its key in a tree.
  *
  * This function allows to find an item in a tree by item's key.
