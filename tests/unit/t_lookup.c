@@ -57,7 +57,7 @@ UTEST_FUNCTION(ut_lookup, args)
     num_items = utest_get_arg(args, 1, INT);
     UTEST_ASSERT(num_items >= 1);
 
-    ret = ttree_init(&tree, num_keys, __cmpfunc, struct item, key);
+    ret = ttree_init(&tree, num_keys, true, __cmpfunc, struct item, key);
     UTEST_ASSERT(ret >= 0);
     for (i = 0; i < (num_items / 2); i++) {
         item = alloc_item(i);

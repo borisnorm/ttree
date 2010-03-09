@@ -12,15 +12,15 @@ int mycmpfunc(void *k1, void *k2)
     return 0;
 }
 
-#define TTREE_INIT_CHECK(ttreep, numk, func, st, key)   \
-    do {                                                \
-        ret = ttree_init(ttreep, numk, func, st, key);  \
-        UTEST_ASSERT(ret == 0);                         \
+#define TTREE_INIT_CHECK(ttreep, numk, func, st, key)           \
+    do {                                                        \
+        ret = ttree_init(ttreep, numk, true, func, st, key);    \
+        UTEST_ASSERT(ret == 0);                                 \
     } while (0)
 
 #define TTREE_INIT_CHECK_ERR(ttreep, numk, func, st, key, err)  \
     do {                                                        \
-        ret = ttree_init(ttreep, numk, func, st, key);          \
+        ret = ttree_init(ttreep, numk, true, func, st, key);    \
         UTEST_ASSERT(ret < 0);                                  \
         UTEST_ASSERT(errno == (err));                           \
         errno = 0;                                              \

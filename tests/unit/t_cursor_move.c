@@ -35,7 +35,8 @@ UTEST_FUNCTION(ut_cursor_move_pending, args)
     TtreeCursor cursor;
     void *result;
 
-    ret = ttree_init(&tree, TTREE_DEFAULT_NUMKEYS, __cmpfunc, struct item, key);
+    ret = ttree_init(&tree, TTREE_DEFAULT_NUMKEYS, true,
+                     __cmpfunc, struct item, key);
     UTEST_ASSERT(ret >= 0);
 
     /*
@@ -136,7 +137,7 @@ UTEST_FUNCTION(ut_cursor_insert, args)
     num_keys = utest_get_arg(args, 0, INT);
     num_items = utest_get_arg(args, 1, INT);
     UTEST_ASSERT(num_items > 1);
-    ret = ttree_init(&tree, num_keys, __cmpfunc, struct item, key);
+    ret = ttree_init(&tree, num_keys, true, __cmpfunc, struct item, key);
     UTEST_ASSERT(ret >= 0);
 
     /* Fill the very first node with items, then check the cursor state */
@@ -189,7 +190,7 @@ UTEST_FUNCTION(ut_cursor_move, args)
     num_items = utest_get_arg(args, 1, INT);
     UTEST_ASSERT(num_items >= 1);
 
-    ret = ttree_init(&tree, num_keys, __cmpfunc, struct item, key);
+    ret = ttree_init(&tree, num_keys, true, __cmpfunc, struct item, key);
     UTEST_ASSERT(ret == 0);
     for (i = 0; i < num_items; i++) {
         item = alloc_item(i + 1);

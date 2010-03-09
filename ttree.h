@@ -42,6 +42,7 @@
 #define __TTREE_H__
 
 #include <stdint.h>
+#include <stdbool.h>
 #include <sys/types.h>
 #include "ttree_defs.h"
 
@@ -107,10 +108,10 @@ typedef struct ttree_node {
     union {
         uint32_t pad;
         struct {
-            signed min_idx     :12;      /**< Index of minimum item in node's array */
-            signed max_idx     :12;      /**< Index of maximum item in node's array */
-            signed bfc         :4;       /**< Node's balance factor */
-            unsigned node_side :4;       /**< Node's side(TNODE_LEFT, TNODE_RIGHT or TNODE_ROOT) */
+            signed min_idx     :12;  /**< Index of minimum item in node's array */
+            signed max_idx     :12;  /**< Index of maximum item in node's array */
+            signed bfc         :4;   /**< Node's balance factor */
+            unsigned node_side :4;  /**< Node's side(TNODE_LEFT, TNODE_RIGHT or TNODE_ROOT) */
         };
     };
 
@@ -131,13 +132,18 @@ typedef struct ttree {
     ttree_cmp_func_fn cmp_func; /**< User-defined key comparing function */
     size_t key_offs;            /**< Offset from item to its key(may be 0) */
     int keys_per_tnode;         /**< Number of keys per each T*-tree node */
+
+    /**
+     * The field is true if keys in a tree supposed to be unique
+     */
+    bool keys_are_unique;
 } Ttree;
 
 typedef struct ttree_cursor {
     Ttree *ttree;
-    TtreeNode *tnode; /**< A pointer to T*-tree node */
-    int idx;             /**< Particular index in a T*-tree node array */
-    int side;            /**< T*-tree node side. Used when item is inserted. */
+    TtreeNode *tnode;     /**< A pointer to T*-tree node */
+    int idx;              /**< Particular index in a T*-tree node array */
+    int side;             /**< T*-tree node side. Used when item is inserted. */
     enum ttree_cursor_state state;
 } TtreeCursor;
 
@@ -205,6 +211,7 @@ static __inline int tnode_get_side(TtreeNode *tnode)
  * @brief Initialize new T*-tree.
  * @param ttree[out]  - A pointer to T*-tree structure for initialization
  * @param num_keys    - A number of keys per T*-tree node.
+ * @param is_unique   - A boolean to determine whether keys must be unique.
  * @param cmpf        - A pointer to user-defined comparison function
  * @param data_struct - Structure containing an item that will be
  *                      used by T*-tree as a key.
@@ -212,18 +219,21 @@ static __inline int tnode_get_side(TtreeNode *tnode)
  * @return 0 on success, -1 on error.
  * @see __ttree_init
  */
-#define ttree_init(ttree, num_keys, cmpf, data_struct, key_field)   \
-    __ttree_init(ttree, num_keys, cmpf, offsetof(data_struct, key_field))
+#define ttree_init(ttree, num_keys, is_unique, cmpf, data_struct, key_field) \
+    __ttree_init(ttree, num_keys, is_unique, cmpf,                      \
+                 offsetof(data_struct, key_field))
 
 /**
  * @brief More detailed T*-tree initialization.
  * @param ttree[out] - A pointer to T*-tree to initialize
+ * @param num_keys   - A number of keys per T*-tree node.
+ * @param is_unique  - A boolean to determine whether keys must be unique.
  * @param cmpf       - User defined comparison function
  * @param key_offs   - Offset from item structure start to its key field.
  * @return 0 on success, -1 on error.
  * @see ttree_init
  */
-int __ttree_init(Ttree *ttree, int num_keys,
+int __ttree_init(Ttree *ttree, int num_keys, bool is_unique,
                  ttree_cmp_func_fn cmpf, size_t key_offs);
 
 /**

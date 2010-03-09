@@ -48,7 +48,7 @@ UTEST_FUNCTION(ut_double_rotation, args)
     struct item *item;
 
     num_keys = utest_get_arg(args, 0, INT);
-    ret = ttree_init(&tree, num_keys, __cmpfunc, struct item, key);
+    ret = ttree_init(&tree, num_keys, true, __cmpfunc, struct item, key);
     UTEST_ASSERT(ret >= 0);
 
     middle = 100000;
@@ -163,7 +163,7 @@ UTEST_FUNCTION(ut_insert_dec, args)
     num_items = utest_get_arg(args, 1, INT);
     UTEST_ASSERT(num_items >= 1);
 
-    ret = ttree_init(&tree, num_keys, __cmpfunc, struct item, key);
+    ret = ttree_init(&tree, num_keys, true, __cmpfunc, struct item, key);
     UTEST_ASSERT(ret >= 0);
 
     i = 0;
@@ -217,7 +217,7 @@ UTEST_FUNCTION(ut_insert_inc, args)
     num_keys = utest_get_arg(args, 0, INT);
     num_items = utest_get_arg(args, 1, INT);
     UTEST_ASSERT(num_items >= 1);
-    ret = ttree_init(&tree, num_keys, __cmpfunc, struct item, key);
+    ret = ttree_init(&tree, num_keys, true, __cmpfunc, struct item, key);
     UTEST_ASSERT(ret >= 0);
 
     for (i = 0; i < num_items; i++) {

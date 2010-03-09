@@ -561,7 +561,7 @@ static void fixup_after_deletion(Ttree *ttree, TtreeNode *n,
     }
 }
 
-int __ttree_init(Ttree *ttree, int num_keys,
+int __ttree_init(Ttree *ttree, int num_keys, bool is_unique,
                  ttree_cmp_func_fn cmpf, size_t key_offs)
 {
     TTREE_CT_ASSERT((TTREE_DEFAULT_NUMKEYS >= TNODE_ITEMS_MIN) &&
@@ -577,6 +577,7 @@ int __ttree_init(Ttree *ttree, int num_keys,
     ttree->keys_per_tnode = num_keys;
     ttree->cmp_func = cmpf;
     ttree->key_offs = key_offs;
+    ttree->keys_are_unique = is_unique;
 
     return 0;
 }
@@ -695,8 +696,12 @@ int ttree_insert(Ttree *ttree, void *item)
 {
     TtreeCursor cursor;
 
-    /* If the tree already contains the same key item has, signal an error. */
-    if (ttree_lookup(ttree, ttree_item2key(ttree, item), &cursor)) {
+    /*
+     * If the tree already contains the same key item has and
+     * tree's wasn't allowed to hold duplicate keys, signal an error.
+     */
+    if (ttree_lookup(ttree, ttree_item2key(ttree, item), &cursor)
+        && !ttree->keys_are_unique) {
         return -1;
     }
 
